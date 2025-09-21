@@ -104,7 +104,17 @@ class SimulationScreen:
         self.simulation.generateInitialEntities()
         self.simulation.placeInitialEntitiesInEnvironment()
         self.simulation.environment.printInfo()
-        self.__initializeCaption()
+    
+    def initializeGameDisplay(self):
+        """Reinitializes the game display, typically used when toggling fullscreen mode."""
+        if self.__config.fullscreen:
+            self.__graphik.gameDisplay = pygame.display.set_mode((self.__config.displayWidth, self.__config.displayHeight), pygame.FULLSCREEN)
+        else:
+            self.__graphik.gameDisplay = pygame.display.set_mode((self.__config.displayWidth, self.__config.displayHeight), pygame.RESIZABLE)
+        
+        # Only update caption if simulation is initialized
+        if hasattr(self, 'simulation') and self.simulation is not None:
+            self.__initializeCaption()
 
     # private methods --------------------------------------------------------
     def __initializeCaption(self):
