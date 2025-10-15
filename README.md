@@ -3,6 +3,27 @@ This game allows you to manage a virtual environment containing entities that de
 
 <img src="pics/screenshot4.PNG" alt="screenshot" width="720"/>
 
+## UI Modes
+Apex can be run in two different modes:
+
+### Pygame GUI Mode (Default)
+The standard graphical interface with visual representation of the ecosystem.
+```bash
+python src/apex.py
+```
+
+### Text-Based Mode
+A lightweight console-based interface that displays simulation statistics without graphics.
+```bash
+python src/apex.py --text
+```
+
+The text mode is ideal for:
+- Running simulations on headless servers
+- Lower resource consumption
+- Remote SSH sessions
+- Automated testing and analysis
+
 ## Types of Living Entities
 - Chicken
 - Pig
@@ -19,6 +40,8 @@ If there is no grass, everything collapses.
 Living entities spawn excrement when their energy needs are met and this turns into grass over time.
 
 ## Controls
+The following keyboard controls are available in **Pygame GUI Mode**:
+
 Key | Action
 ------------ | -------------
 space | pause/unpause
@@ -40,6 +63,8 @@ l | toggle tick speed limit
 f11 | toggle fullscreen mode
 r | restart
 q | quit
+
+**In Text-Based Mode**, press Ctrl+C to quit the simulation.
 
 At this time, the user can pause/unpause, toggle the tick speed limit, increase/decrease the tick speed, manually spawn living entities, restart the simulation, enter debug mode and quit the application.
 
