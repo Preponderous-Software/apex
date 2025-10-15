@@ -27,10 +27,13 @@ from entity.rock import Rock
 # @since July 26th, 2022
 class Simulation:
     # constructors ------------------------------------------------------------
-    def __init__(self, name, config, gameDisplay):
+    def __init__(self, name, config, gameDisplay, soundService=None):
         self.__config = config
         self.__gameDisplay = gameDisplay
-        self.__soundService = SoundService()
+        if soundService is None:
+            self.__soundService = SoundService()
+        else:
+            self.__soundService = soundService
         
         self.environment = Environment(name, self.getConfig().gridSize)
 

@@ -1,3 +1,4 @@
+import argparse
 import pygame
 from lib.graphiklib.graphik import Graphik
 from screen.mainMenuScreen import MainMenuScreen
@@ -58,5 +59,19 @@ class Apex:
         pygame.quit()
         quit()
 
-apex = Apex()
-apex.run()
+if __name__ == "__main__":
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Apex Ecosystem Simulator')
+    parser.add_argument('--text', action='store_true', 
+                        help='Run simulation in text mode (no GUI)')
+    args = parser.parse_args()
+    
+    if args.text:
+        # Run in text mode
+        from textSimulationRunner import TextSimulationRunner
+        runner = TextSimulationRunner()
+        runner.run()
+    else:
+        # Run in pygame GUI mode (default)
+        apex = Apex()
+        apex.run()
