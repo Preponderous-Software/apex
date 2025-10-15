@@ -13,10 +13,25 @@ python src/apex.py
 ```
 
 ### Text-Based Mode
-A lightweight console-based interface that displays simulation statistics without graphics.
+A lightweight console-based interface that visualizes the ecosystem using ASCII characters and displays simulation statistics. Features include:
+- Real-time environment visualization with colored ASCII characters
+- Non-blocking keyboard controls (same as GUI mode)
+- Interactive spawning of entities
+- Pause/resume, speed control, and debug mode
+
 ```bash
 python src/apex.py --text
 ```
+
+**Legend for Text Mode:**
+- `.` = Grass (green)
+- `x` = Excrement (yellow)
+- `C` = Chicken (yellow)
+- `P` = Pig (magenta)
+- `K` = Cow (cyan)
+- `W` = Wolf (red)
+- `F` = Fox (red)
+- `R` = Rabbit (white)
 
 The text mode is ideal for:
 - Running simulations on headless servers
@@ -40,6 +55,8 @@ If there is no grass, everything collapses.
 Living entities spawn excrement when their energy needs are met and this turns into grass over time.
 
 ## Controls
+
+### Pygame GUI Mode
 The following keyboard controls are available in **Pygame GUI Mode**:
 
 Key | Action
@@ -64,7 +81,23 @@ f11 | toggle fullscreen mode
 r | restart
 q | quit
 
-**In Text-Based Mode**, press Ctrl+C to quit the simulation.
+### Text-Based Mode
+The following keyboard controls are available in **Text-Based Mode**:
+
+Key | Action
+------------ | -------------
+space | pause/unpause
+d | debug mode
+c | spawn a chicken
+p | spawn a pig
+k | spawn a cow
+w | spawn a wolf
+f | spawn a fox
+b | spawn a rabbit
+l | toggle tick speed limit
+] | increase tick speed (if enabled)
+[ | decrease tick speed (if enabled)
+q | quit
 
 At this time, the user can pause/unpause, toggle the tick speed limit, increase/decrease the tick speed, manually spawn living entities, restart the simulation, enter debug mode and quit the application.
 
