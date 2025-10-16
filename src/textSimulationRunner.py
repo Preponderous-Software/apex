@@ -209,7 +209,7 @@ class TextSimulationRunner:
             cellHeight = 1
             
             # Calculate available space for grid
-            statsHeight = 12 if self.debug else 8
+            statsHeight = 12 if self.controller.isDebug() else 8
             availableHeight = height - statsHeight - 2
             availableWidth = width - 2
             
