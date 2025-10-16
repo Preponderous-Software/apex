@@ -11,6 +11,7 @@ from entity.rabbit import Rabbit
 from entity.wolf import Wolf
 from simulation.config import Config
 from simulation.simulation import Simulation
+from simulation.simulationController import SimulationController
 from lib.pyenvlib.entity import Entity
 from entity.livingEntity import LivingEntity
 
@@ -31,14 +32,14 @@ class TextSimulationRunner:
     A text-based simulation runner that visualizes the environment and displays 
     simulation stats to the console without using pygame graphics.
     Supports keyboard commands for interactive control.
+    Uses SimulationController to decouple UI from gameplay logic.
     """
     
     def __init__(self, config: Config = None):
         self.config = config if config else Config()
         self.simulation = None
+        self.controller = None
         self.running = True
-        self.paused = False
-        self.debug = False
         self.stdscr = None
         
     def run(self):
@@ -80,21 +81,18 @@ class TextSimulationRunner:
                 # Handle keyboard input (non-blocking)
                 self._handle_input()
                 
-                # Update simulation if not paused
-                if not self.paused:
-                    self.simulation.update()
-                    self.simulation.numTicks += 1
+                # Update simulation through controller
+                self.controller.update()
                 
                 # Draw the environment and stats
                 self._draw_screen()
                 
                 # Check if simulation should end
-                if self.config.endSimulationUponAllLivingEntitiesDying:
-                    if self.simulation.getNumLivingEntities() == 0:
-                        self._show_message("All living entities have died. Simulation ended.")
-                        self.simulation.cleanup()
-                        self.running = False
-                        time.sleep(2)
+                if self.controller.shouldEnd():
+                    self._show_message("All living entities have died. Simulation ended.")
+                    self.controller.quit()
+                    self.running = False
+                    time.sleep(2)
                 
                 # Apply tick speed limit
                 if self.config.limitTickSpeed:
@@ -123,6 +121,9 @@ class TextSimulationRunner:
         # Create simulation with mock sound service
         mockSoundService = MockSoundService()
         self.simulation = Simulation(name, self.config, mockDisplay, mockSoundService)
+        
+        # Create controller to manage gameplay actions
+        self.controller = SimulationController(self.simulation, self.config)
         
         self.simulation.generateInitialEntities()
         self.simulation.placeInitialEntitiesInEnvironment()
@@ -162,51 +163,32 @@ class TextSimulationRunner:
         try:
             key = self.stdscr.getch()
             
+            # Use controller for all gameplay actions
             if key == ord(' '):
-                self.paused = not self.paused
+                self.controller.togglePause()
             elif key == ord('q'):
                 self.running = False
-                self.simulation.cleanup()
+                self.controller.quit()
             elif key == ord('d'):
-                self.debug = not self.debug
+                self.controller.toggleDebug()
             elif key == ord('c'):
-                from entity.chicken import Chicken
-                chicken = Chicken("player-created-chicken")
-                self.simulation.environment.addEntity(chicken)
-                self.simulation.addEntityToTrackedEntities(chicken)
+                self.controller.spawnChicken()
             elif key == ord('p'):
-                from entity.pig import Pig
-                pig = Pig("player-created-pig")
-                self.simulation.environment.addEntity(pig)
-                self.simulation.addEntityToTrackedEntities(pig)
+                self.controller.spawnPig()
             elif key == ord('k'):
-                from entity.cow import Cow
-                cow = Cow("player-created-cow")
-                self.simulation.environment.addEntity(cow)
-                self.simulation.addEntityToTrackedEntities(cow)
+                self.controller.spawnCow()
             elif key == ord('w'):
-                from entity.wolf import Wolf
-                wolf = Wolf("player-created-wolf")
-                self.simulation.environment.addEntity(wolf)
-                self.simulation.addEntityToTrackedEntities(wolf)
+                self.controller.spawnWolf()
             elif key == ord('f'):
-                from entity.fox import Fox
-                fox = Fox("player-created-fox")
-                self.simulation.environment.addEntity(fox)
-                self.simulation.addEntityToTrackedEntities(fox)
+                self.controller.spawnFox()
             elif key == ord('b'):
-                from entity.rabbit import Rabbit
-                rabbit = Rabbit("player-created-rabbit")
-                self.simulation.environment.addEntity(rabbit)
-                self.simulation.addEntityToTrackedEntities(rabbit)
+                self.controller.spawnRabbit()
             elif key == ord('l'):
-                self.config.limitTickSpeed = not self.config.limitTickSpeed
+                self.controller.toggleTickSpeedLimit()
             elif key == ord(']'):
-                if self.config.tickSpeed < self.config.maxTickSpeed:
-                    self.config.tickSpeed += 1
+                self.controller.increaseTickSpeed()
             elif key == ord('['):
-                if self.config.tickSpeed > 1:
-                    self.config.tickSpeed -= 1
+                self.controller.decreaseTickSpeed()
                     
         except:
             pass  # Ignore input errors
@@ -312,7 +294,7 @@ class TextSimulationRunner:
                 if startY + i < curses.LINES - 2:
                     self.stdscr.addstr(startY + i, 1, stat[:width-2])
                     
-            if self.debug:
+            if self.controller.isDebug():
                 # Add more detailed stats in debug mode
                 debug_stats = [
                     "",
@@ -329,7 +311,7 @@ class TextSimulationRunner:
         """Draw status bar at bottom."""
         try:
             status = ""
-            if self.paused:
+            if self.controller.isPaused():
                 status = "PAUSED - "
             status += "q:Quit SPACE:Pause d:Debug [/]:Speed c/p/k/w/f/b:Spawn"
             self.stdscr.addstr(y, 0, status[:width], curses.A_REVERSE)

@@ -14,6 +14,7 @@ from lib.graphiklib.graphik import Graphik
 from screen.screenType import ScreenType
 from simulation.config import Config
 from simulation.simulation import Simulation
+from simulation.simulationController import SimulationController
 from ui.textAlertDrawTool import TextAlertDrawTool
 from ui.textAlertFactory import TextAlertFactory
 
@@ -25,8 +26,7 @@ class SimulationScreen:
         self.__config = config
         self.__nextScreen = ScreenType.RESULTS_SCREEN
         self.__changeScreen = False
-        self.__paused = False
-        self.__debug = False
+        self.__controller = None
         self.__textAlerts = []
         self.__textAlertFactory = TextAlertFactory()
         self.__textAlertDrawTool = TextAlertDrawTool()
@@ -48,17 +48,18 @@ class SimulationScreen:
                 elif event.type == pygame.MOUSEBUTTONDOWN and self.__config.localView == False:
                     self.__handleMouseClickEvent(event.pos)
             
-            if not self.__paused:
-                self.simulation.update()
-                self.__graphik.gameDisplay.fill(self.__config.black)
-                if self.simulation.getNumLivingEntities() != 0:
-                    if self.__config.localView and self.__selectedEntity != None:
-                        self.__drawAreaAroundSelectedEntity()
-                    else:
-                        self.__drawEnvironment()
+            # Update simulation through controller
+            self.__controller.update()
+            
+            self.__graphik.gameDisplay.fill(self.__config.black)
+            if self.simulation.getNumLivingEntities() != 0:
+                if self.__config.localView and self.__selectedEntity != None:
+                    self.__drawAreaAroundSelectedEntity()
+                else:
+                    self.__drawEnvironment()
 
-                    if self.__debug:
-                        self.__displayStats()
+                if self.__controller.isDebug():
+                    self.__displayStats()
             
             self.__drawTextAlerts()
             
@@ -75,25 +76,19 @@ class SimulationScreen:
             if (self.__config.limitTickSpeed):
                 time.sleep((self.__config.maxTickSpeed - self.__config.tickSpeed)/self.__config.maxTickSpeed)
             
-            if not self.__paused:
-                self.simulation.numTicks += 1
-            
-            if self.__paused:
+            if self.__controller.isPaused():
                 x, y = self.__graphik.gameDisplay.get_size()
                 self.__graphik.drawText("PAUSED", x/2, y/2, 50, self.__config.black)
 
-            if (self.__config.endSimulationUponAllLivingEntitiesDying):
-                if self.simulation.getNumLivingEntities() == 0:
-                    time.sleep(1)
-                    self.simulation.cleanup()
-                    if self.__config.randomizeGridSizeUponRestart:
-                        self.__config.randomizeGridSize()
-                        self.__config.randomizeGrassGrowTime()
-                        self.__config.calculateValues()
-                    self.__nextScreen = ScreenType.RESULTS_SCREEN
-                    self.__changeScreen = True
-                    if self.__paused:
-                        self.__paused = False
+            if self.__controller.shouldEnd():
+                time.sleep(1)
+                self.__controller.quit()
+                if self.__config.randomizeGridSizeUponRestart:
+                    self.__config.randomizeGridSize()
+                    self.__config.randomizeGrassGrowTime()
+                    self.__config.calculateValues()
+                self.__nextScreen = ScreenType.RESULTS_SCREEN
+                self.__changeScreen = True
 
         self.__changeScreen = False
         return self.__nextScreen
@@ -101,6 +96,8 @@ class SimulationScreen:
     def initializeSimulation(self):
         name = "Simulation"
         self.simulation = Simulation(name, self.__config, self.__graphik.gameDisplay)
+        # Create controller to manage gameplay actions
+        self.__controller = SimulationController(self.simulation, self.__config)
         self.simulation.generateInitialEntities()
         self.simulation.placeInitialEntitiesInEnvironment()
         self.simulation.environment.printInfo()
@@ -289,58 +286,37 @@ class SimulationScreen:
 
     # Defines the controls of the application.
     def __handleKeyDownEvent(self, key):
+        # Use controller for gameplay actions
         if key == pygame.K_d:
-            if self.__debug == True:
-                self.__debug = False
-            else:
-                self.__debug = True
+            self.__controller.toggleDebug()
         if key == pygame.K_q:
-            self.simulation.cleanup()
-            self.simulation.running = False
+            self.__controller.quit()
         if key == pygame.K_r:
-            self.simulation.cleanup()
+            self.__controller.quit()
             self.__nextScreen = ScreenType.RESULTS_SCREEN
             self.__changeScreen = True
         if key == pygame.K_c:
-            chicken = Chicken("player-created-chicken")
-            self.simulation.environment.addEntity(chicken)
-            self.simulation.addEntityToTrackedEntities(chicken)
+            self.__controller.spawnChicken()
         if key == pygame.K_p:
-            pig = Pig("player-created-pig")
-            self.simulation.environment.addEntity(pig)
-            self.simulation.addEntityToTrackedEntities(pig)
+            self.__controller.spawnPig()
         if key == pygame.K_k:
-            cow = Cow("player-created-cow")
-            self.simulation.environment.addEntity(cow)
-            self.simulation.addEntityToTrackedEntities(cow)
+            self.__controller.spawnCow()
         if key == pygame.K_w:
-            wolf = Wolf("player-created-wolf")
-            self.simulation.environment.addEntity(wolf)
-            self.simulation.addEntityToTrackedEntities(wolf)
+            self.__controller.spawnWolf()
         if key == pygame.K_f:
-            fox = Fox("player-created-fox")
-            self.simulation.environment.addEntity(fox)
-            self.simulation.addEntityToTrackedEntities(fox)
+            self.__controller.spawnFox()
         if key == pygame.K_b:
-            rabbit = Rabbit("player-created-rabbit")
-            self.simulation.environment.addEntity(rabbit)
-            self.simulation.addEntityToTrackedEntities(rabbit)
+            self.__controller.spawnRabbit()
         if key == pygame.K_RIGHTBRACKET:
-            if self.__config.tickSpeed < self.__config.maxTickSpeed:
-                self.__config.tickSpeed += 1
+            self.__controller.increaseTickSpeed()
         if key == pygame.K_LEFTBRACKET:
-            if self.__config.tickSpeed > 1:
-                self.__config.tickSpeed -= 1
+            self.__controller.decreaseTickSpeed()
         if key == pygame.K_l:
-            if self.__config.limitTickSpeed:
-                self.__config.limitTickSpeed = False
-            else:
-                self.__config.limitTickSpeed = True
+            self.__controller.toggleTickSpeedLimit()
         if key == pygame.K_SPACE or key == pygame.K_ESCAPE:
-            if self.__paused:
-                self.__paused = False
-            else:
-                self.__paused = True
+            self.__controller.togglePause()
+        
+        # UI-specific controls (not in controller)
         if key == pygame.K_v:
             if self.__config.localView:
                 self.__config.localView = False
