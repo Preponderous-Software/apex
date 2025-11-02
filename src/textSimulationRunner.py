@@ -41,6 +41,9 @@ class TextSimulationRunner:
         self.controller = None
         self.running = True
         self.stdscr = None
+        self.lastDrawTime = 0
+        self.drawInterval = 0.1  # Refresh screen at most 10 times per second
+        self.needsClear = True  # Flag to clear screen on first draw or after pause
         
     def run(self):
         """Runs the text-based simulation with curses for non-blocking input."""
@@ -84,8 +87,11 @@ class TextSimulationRunner:
                 # Update simulation through controller
                 self.controller.update()
                 
-                # Draw the environment and stats
-                self._draw_screen()
+                # Draw the environment and stats (with rate limiting)
+                currentTime = time.time()
+                if currentTime - self.lastDrawTime >= self.drawInterval:
+                    self._draw_screen()
+                    self.lastDrawTime = currentTime
                 
                 # Check if simulation should end
                 if self.controller.shouldEnd():
@@ -166,11 +172,13 @@ class TextSimulationRunner:
             # Use controller for all gameplay actions
             if key == ord(' '):
                 self.controller.togglePause()
+                self.needsClear = True  # Clear screen on pause toggle
             elif key == ord('q'):
                 self.running = False
                 self.controller.quit()
             elif key == ord('d'):
                 self.controller.toggleDebug()
+                self.needsClear = True  # Clear screen on debug toggle
             elif key == ord('c'):
                 self.controller.spawnChicken()
             elif key == ord('p'):
@@ -196,7 +204,11 @@ class TextSimulationRunner:
     def _draw_screen(self):
         """Draw the environment visualization and stats."""
         try:
-            self.stdscr.clear()
+            # Only clear screen when needed (first draw, after pause, etc)
+            if self.needsClear:
+                self.stdscr.clear()
+                self.needsClear = False
+                
             height, width = self.stdscr.getmaxyx()
             
             # Calculate grid display area
