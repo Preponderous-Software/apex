@@ -2,6 +2,7 @@ import time
 import os
 import sys
 import curses
+from io import StringIO
 from entity.chicken import Chicken
 from entity.cow import Cow
 from entity.fox import Fox
@@ -44,6 +45,9 @@ class TextSimulationRunner:
         self.lastDrawTime = 0
         self.drawInterval = 0.1  # Refresh screen at most 10 times per second
         self.needsClear = True  # Flag to clear screen on first draw or after pause
+        self.lastMessage = ""  # Store the last log message
+        self.messageBuffer = StringIO()  # Capture stdout
+        self.originalStdout = None  # Store original stdout
         
     def run(self):
         """Runs the text-based simulation with curses for non-blocking input."""
@@ -52,6 +56,10 @@ class TextSimulationRunner:
     def _run_with_curses(self, stdscr):
         """Main loop with curses support."""
         self.stdscr = stdscr
+        
+        # Redirect stdout to capture print statements
+        self.originalStdout = sys.stdout
+        sys.stdout = self
         
         # Initialize curses
         curses.curs_set(0)  # Hide cursor
@@ -111,6 +119,20 @@ class TextSimulationRunner:
         except Exception as e:
             self.simulation.cleanup()
             raise e
+        finally:
+            # Restore original stdout
+            if self.originalStdout:
+                sys.stdout = self.originalStdout
+    
+    def write(self, text):
+        """Capture stdout writes (called when print() is used)."""
+        if text and text.strip():
+            # Store only the last non-empty message
+            self.lastMessage = text.strip()
+    
+    def flush(self):
+        """Required for file-like object compatibility."""
+        pass
         
     def initializeSimulation(self):
         """Initializes the simulation with a mock game display."""
@@ -301,6 +323,11 @@ class TextSimulationRunner:
             
             if self.config.limitTickSpeed:
                 stats.append(f"Tick Speed: {self.config.tickSpeed}/{self.config.maxTickSpeed}")
+            
+            # Add a blank line before the last message
+            if self.lastMessage:
+                stats.append("")
+                stats.append(f"Event: {self.lastMessage[:width-10]}")
             
             for i, stat in enumerate(stats):
                 if startY + i < curses.LINES - 2:
