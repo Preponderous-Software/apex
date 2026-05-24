@@ -70,26 +70,35 @@ class SetupScreen:
             self.switchToSimulationScreen,
         )
         
+        # Use plain-English labels rather than the internal camelCase
+        # identifiers — programming jargon in a setup screen makes the
+        # user stop and think (DMMT) and breaks Nielsen #2: match between
+        # the system and the real world.
         y = y / 2
-        self.drawIntegerConfigOptionSetter(x, y, "gridSize", self.config.gridSize, self.decreaseGridSize, self.increaseGridSize)
+        self.drawIntegerConfigOptionSetter(x, y, "Grid size", self.config.gridSize, self.decreaseGridSize, self.increaseGridSize)
         y += 150
-        self.drawIntegerConfigOptionSetter(x, y, "waterFactor", self.config.waterFactor, self.decreaseWaterFactor, self.increaseWaterFactor)
+        self.drawIntegerConfigOptionSetter(x, y, "Water factor", self.config.waterFactor, self.decreaseWaterFactor, self.increaseWaterFactor)
         y += 150
-        self.drawIntegerConfigOptionSetter(x, y, "rockFactor", self.config.rockFactor, self.decreaseRockFactor, self.increaseRockFactor)
+        self.drawIntegerConfigOptionSetter(x, y, "Rock factor", self.config.rockFactor, self.decreaseRockFactor, self.increaseRockFactor)
         y += 150
-        self.drawIntegerConfigOptionSetter(x, y, "grassFactor", self.config.grassFactor, self.decreaseGrassFactor, self.increaseGrassFactor)
+        self.drawIntegerConfigOptionSetter(x, y, "Grass factor", self.config.grassFactor, self.decreaseGrassFactor, self.increaseGrassFactor)
         y += 150
-        self.drawIntegerConfigOptionSetter(x, y, "grassGrowTime", self.config.grassGrowTime, self.decreaseGrassGrowTime, self.increaseGrassGrowTime)
-        
-        randomizeButtonWidth = 200
-        randomizeButtonHeight = 50
-        randomizeButtonX = 0
-        randomizeButtonY = 0
+        self.drawIntegerConfigOptionSetter(x, y, "Grass grow time", self.config.grassGrowTime, self.decreaseGrassGrowTime, self.increaseGrassGrowTime)
+
+        # Place "randomize" mirroring the main-menu button position so the
+        # two header affordances feel intentional. The original (0,0)
+        # placement made it look like a stray debug control and gave no
+        # spatial cue that it affected the config options below.
+        screenX, screenY = self.graphik.getGameDisplay().get_size()
+        randomizeWidth = screenX / 5
+        randomizeHeight = screenY / 10
+        randomizeX = screenX - randomizeWidth - screenX / 10
+        randomizeY = screenY / 10
         self.graphik.drawButton(
-            randomizeButtonX,
-            randomizeButtonY,
-            randomizeButtonWidth,
-            randomizeButtonHeight,
+            randomizeX,
+            randomizeY,
+            randomizeWidth,
+            randomizeHeight,
             backgroundColor,
             (0, 0, 0),
             30,
@@ -98,7 +107,12 @@ class SetupScreen:
         )
         
     def randomizeConfig(self):
-        self.config = Config()
+        # Mutate the shared Config in place so changes propagate to the rest
+        # of the app — assigning a new Config() would drop the reference held
+        # by Apex/Simulation/etc and silently do nothing visible to the user.
+        fresh = Config()
+        for attr, value in vars(fresh).items():
+            setattr(self.config, attr, value)
     
     def drawIntegerConfigOptionSetter(self, x, y, configOptionName, configOptionValue, decreaseFunction, increaseFunction):
         # given x and y, draw text and buttons next to the text
@@ -209,6 +223,15 @@ class SetupScreen:
                     self.nextScreen = ScreenType.NONE
                     self.changeScreen = True
                     break
+                # Keyboard shortcuts for users who don't want to mouse over
+                # to the buttons (Nielsen #7: flexibility & efficiency of
+                # use). ESC mirrors the typical "back" affordance, and
+                # ENTER mirrors "start simulation".
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.switchToMainMenuScreen()
+                    elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        self.switchToSimulationScreen()
 
             self.graphik.getGameDisplay().fill((0, 0, 0))
             self.drawText()

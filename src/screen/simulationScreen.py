@@ -14,6 +14,7 @@ from lib.graphiklib.graphik import Graphik
 from screen.screenType import ScreenType
 from simulation.config import Config
 from simulation.simulation import Simulation
+from simulation.simulationController import SimulationController
 from ui.textAlertDrawTool import TextAlertDrawTool
 from ui.textAlertFactory import TextAlertFactory
 
@@ -25,12 +26,12 @@ class SimulationScreen:
         self.__config = config
         self.__nextScreen = ScreenType.RESULTS_SCREEN
         self.__changeScreen = False
-        self.__paused = False
-        self.__debug = False
+        self.__controller = None
         self.__textAlerts = []
         self.__textAlertFactory = TextAlertFactory()
         self.__textAlertDrawTool = TextAlertDrawTool()
         self.__selectedEntity = None
+        self.__showHelp = False
     
     # public methods ---------------------------------------------------------
     # Invokes the simulation screen loop.
@@ -48,17 +49,18 @@ class SimulationScreen:
                 elif event.type == pygame.MOUSEBUTTONDOWN and self.__config.localView == False:
                     self.__handleMouseClickEvent(event.pos)
             
-            if not self.__paused:
-                self.simulation.update()
-                self.__graphik.gameDisplay.fill(self.__config.black)
-                if self.simulation.getNumLivingEntities() != 0:
-                    if self.__config.localView and self.__selectedEntity != None:
-                        self.__drawAreaAroundSelectedEntity()
-                    else:
-                        self.__drawEnvironment()
+            # Update simulation through controller
+            self.__controller.update()
+            
+            self.__graphik.gameDisplay.fill(self.__config.black)
+            if self.simulation.getNumLivingEntities() != 0:
+                if self.__config.localView and self.__selectedEntity != None:
+                    self.__drawAreaAroundSelectedEntity()
+                else:
+                    self.__drawEnvironment()
 
-                    if self.__debug:
-                        self.__displayStats()
+                if self.__controller.isDebug():
+                    self.__displayStats()
             
             self.__drawTextAlerts()
             
@@ -71,29 +73,29 @@ class SimulationScreen:
                     self.__config.localView = False
 
             self.__drawVersion()
+
+            # Overlays go before display.update() so they actually reach
+            # the framebuffer. The earlier code drew PAUSED after the
+            # update() and before the next-frame fill(black) erased it,
+            # which meant the indicator never appeared.
+            if self.__controller.isPaused():
+                self.__drawPausedOverlay()
+            if self.__showHelp:
+                self.__drawHelpOverlay()
+
             pygame.display.update()
             if (self.__config.limitTickSpeed):
                 time.sleep((self.__config.maxTickSpeed - self.__config.tickSpeed)/self.__config.maxTickSpeed)
-            
-            if not self.__paused:
-                self.simulation.numTicks += 1
-            
-            if self.__paused:
-                x, y = self.__graphik.gameDisplay.get_size()
-                self.__graphik.drawText("PAUSED", x/2, y/2, 50, self.__config.black)
 
-            if (self.__config.endSimulationUponAllLivingEntitiesDying):
-                if self.simulation.getNumLivingEntities() == 0:
-                    time.sleep(1)
-                    self.simulation.cleanup()
-                    if self.__config.randomizeGridSizeUponRestart:
-                        self.__config.randomizeGridSize()
-                        self.__config.randomizeGrassGrowTime()
-                        self.__config.calculateValues()
-                    self.__nextScreen = ScreenType.RESULTS_SCREEN
-                    self.__changeScreen = True
-                    if self.__paused:
-                        self.__paused = False
+            if self.__controller.shouldEnd():
+                time.sleep(1)
+                self.__controller.quit()
+                if self.__config.randomizeGridSizeUponRestart:
+                    self.__config.randomizeGridSize()
+                    self.__config.randomizeGrassGrowTime()
+                    self.__config.calculateValues()
+                self.__nextScreen = ScreenType.RESULTS_SCREEN
+                self.__changeScreen = True
 
         self.__changeScreen = False
         return self.__nextScreen
@@ -101,6 +103,8 @@ class SimulationScreen:
     def initializeSimulation(self):
         name = "Simulation"
         self.simulation = Simulation(name, self.__config, self.__graphik.gameDisplay)
+        # Create controller to manage gameplay actions
+        self.__controller = SimulationController(self.simulation, self.__config)
         self.simulation.generateInitialEntities()
         self.simulation.placeInitialEntitiesInEnvironment()
         self.simulation.environment.printInfo()
@@ -258,89 +262,148 @@ class SimulationScreen:
             if textAlert.duration == 0:
                 self.__textAlerts.remove(textAlert)
 
-    # Draws some statistics to the screen, which are updated each tick. This can be laggy.
+    def __drawPausedOverlay(self):
+        x, y = self.__graphik.gameDisplay.get_size()
+        backdrop = pygame.Surface((x, 80), pygame.SRCALPHA)
+        backdrop.fill((0, 0, 0, 160))
+        self.__graphik.gameDisplay.blit(backdrop, (0, y/2 - 40))
+        self.__graphik.drawText("PAUSED", x/2, y/2, 50, self.__config.white)
+        self.__graphik.drawText("press space to resume", x/2, y/2 + 30, 18, self.__config.white)
+
+    HELP_LINES = [
+        "Controls",
+        "",
+        "  SPACE / ESC   pause / resume",
+        "  ? or F1       toggle this help",
+        "  d             toggle debug stats",
+        "  v             toggle global / local view",
+        "  up / down     local view distance",
+        "  h             highlight oldest entity",
+        "  e             toggle entity eyes",
+        "  m             mute / unmute",
+        "  F11           toggle fullscreen",
+        "  l             toggle tick-speed limit",
+        "  ] / [         increase / decrease tick speed",
+        "  r             restart (show results)",
+        "  q             quit application",
+        "",
+        "Spawn:  c chicken  p pig  k cow  w wolf  f fox  b rabbit",
+        "",
+        "Press ? or F1 to dismiss",
+    ]
+
+    def __drawHelpOverlay(self):
+        """In-game help so users don't need to alt-tab to the README
+        (Nielsen #10: help & documentation; DMMT: self-evidence)."""
+        x, y = self.__graphik.gameDisplay.get_size()
+        panelWidth = min(int(x * 0.9), 720)
+        lineHeight = 26
+        panelHeight = lineHeight * len(self.HELP_LINES) + 40
+        panelX = (x - panelWidth) // 2
+        panelY = max(20, (y - panelHeight) // 2)
+        panel = pygame.Surface((panelWidth, panelHeight), pygame.SRCALPHA)
+        panel.fill((0, 0, 0, 210))
+        self.__graphik.gameDisplay.blit(panel, (panelX, panelY))
+        for i, line in enumerate(self.HELP_LINES):
+            size = 28 if i == 0 else 18
+            self.__graphik.drawText(
+                line,
+                panelX + panelWidth // 2,
+                panelY + 24 + lineHeight * i,
+                size,
+                self.__config.white,
+            )
+
+    # Draws statistics to the screen as "Label: value" rows on a dark
+    # panel so they remain legible over any environment color (DMMT:
+    # scannability; Nielsen #8: aesthetic & minimalist design).
     def __displayStats(self):
-        startingX = 100
-        startingY = 10
-        text = []
-        if self.__config.limitTickSpeed:
-            self.__addStatToText(text, "Tick Speed:", str(self.__config.tickSpeed))
-        self.__addStatToText(text, "Num Ticks:", str(self.simulation.numTicks))
-        self.__addStatToText(text, "Entities:", str(len(self.simulation.entities)))
-        self.__addStatToText(text, "Living Entities:", str(self.simulation.getNumLivingEntities()))
-        self.__addStatToText(text, "Grass:", str(self.simulation.getNumberOfEntitiesOfType(Grass)))
-        self.__addStatToText(text, "Excrement:", str(self.simulation.getNumExcrement()))
-        self.__addStatToText(text, "Chickens:", str(self.simulation.getNumberOfLivingEntitiesOfType(Chicken)))
-        self.__addStatToText(text, "Pigs:", str(self.simulation.getNumberOfLivingEntitiesOfType(Pig)))
-        self.__addStatToText(text, "Cows:", str(self.simulation.getNumberOfLivingEntitiesOfType(Cow)))
-        self.__addStatToText(text, "Wolves:", str(self.simulation.getNumberOfLivingEntitiesOfType(Wolf)))
-        self.__addStatToText(text, "Foxes:", str(self.simulation.getNumberOfLivingEntitiesOfType(Fox)))
-        self.__addStatToText(text, "Rabbits:", str(self.simulation.getNumberOfLivingEntitiesOfType(Rabbit)))
+        speedText = (
+            str(self.__config.tickSpeed) + "/" + str(self.__config.maxTickSpeed)
+            if self.__config.limitTickSpeed else "unlimited"
+        )
+        rows = [
+            ("Ticks", str(self.simulation.numTicks)),
+            ("Living", str(self.simulation.getNumLivingEntities())),
+            ("Total entities", str(len(self.simulation.entities))),
+            ("Speed", speedText),
+            ("Grass", str(self.simulation.getNumberOfEntitiesOfType(Grass))),
+            ("Excrement", str(self.simulation.getNumExcrement())),
+            ("Chickens", str(self.simulation.getNumberOfLivingEntitiesOfType(Chicken))),
+            ("Pigs", str(self.simulation.getNumberOfLivingEntitiesOfType(Pig))),
+            ("Cows", str(self.simulation.getNumberOfLivingEntitiesOfType(Cow))),
+            ("Wolves", str(self.simulation.getNumberOfLivingEntitiesOfType(Wolf))),
+            ("Foxes", str(self.simulation.getNumberOfLivingEntitiesOfType(Fox))),
+            ("Rabbits", str(self.simulation.getNumberOfLivingEntitiesOfType(Rabbit))),
+        ]
 
-        buffer = self.__config.textSize
+        textSize = self.__config.textSize
+        lineHeight = int(textSize * 1.4)
+        padding = 8
+        panelWidth = 220
+        panelHeight = padding * 2 + lineHeight * len(rows)
+        panelX, panelY = 10, 10
 
-        for i in range(0, len(text)):
-            self.__graphik.drawText(text[i], startingX, startingY + buffer*i, self.__config.textSize, self.__config.black)
+        panel = pygame.Surface((panelWidth, panelHeight), pygame.SRCALPHA)
+        panel.fill((0, 0, 0, 170))
+        self.__graphik.gameDisplay.blit(panel, (panelX, panelY))
 
-    def __addStatToText(self, text, key, value):
-        text.append(key)
-        text.append(value)
-        text.append("")
+        for i, (label, value) in enumerate(rows):
+            line = label + ": " + value
+            # drawText centers on its anchor, so anchor at the row midline.
+            y = panelY + padding + lineHeight * i + lineHeight // 2
+            self.__graphik.drawText(
+                line,
+                panelX + panelWidth // 2,
+                y,
+                textSize,
+                self.__config.white,
+            )
 
     # Defines the controls of the application.
     def __handleKeyDownEvent(self, key):
+        # Help overlay — `?` or F1, the two near-universal conventions.
+        if key == pygame.K_F1 or key == pygame.K_SLASH or key == pygame.K_QUESTION:
+            self.__showHelp = not self.__showHelp
+            return
+        # Use controller for gameplay actions
         if key == pygame.K_d:
-            if self.__debug == True:
-                self.__debug = False
-            else:
-                self.__debug = True
+            self.__controller.toggleDebug()
         if key == pygame.K_q:
-            self.simulation.cleanup()
-            self.simulation.running = False
+            # `q` used to call controller.quit() in isolation, which printed
+            # the cleanup summary but never actually left the simulation
+            # screen — the loop kept running because nothing read
+            # simulation.running here. Quit the application properly so the
+            # advertised control matches its behavior (Nielsen #4).
+            self.__controller.quit()
+            self.__nextScreen = ScreenType.NONE
+            self.__changeScreen = True
         if key == pygame.K_r:
-            self.simulation.cleanup()
+            self.__controller.quit()
             self.__nextScreen = ScreenType.RESULTS_SCREEN
             self.__changeScreen = True
         if key == pygame.K_c:
-            chicken = Chicken("player-created-chicken")
-            self.simulation.environment.addEntity(chicken)
-            self.simulation.addEntityToTrackedEntities(chicken)
+            self.__controller.spawnChicken()
         if key == pygame.K_p:
-            pig = Pig("player-created-pig")
-            self.simulation.environment.addEntity(pig)
-            self.simulation.addEntityToTrackedEntities(pig)
+            self.__controller.spawnPig()
         if key == pygame.K_k:
-            cow = Cow("player-created-cow")
-            self.simulation.environment.addEntity(cow)
-            self.simulation.addEntityToTrackedEntities(cow)
+            self.__controller.spawnCow()
         if key == pygame.K_w:
-            wolf = Wolf("player-created-wolf")
-            self.simulation.environment.addEntity(wolf)
-            self.simulation.addEntityToTrackedEntities(wolf)
+            self.__controller.spawnWolf()
         if key == pygame.K_f:
-            fox = Fox("player-created-fox")
-            self.simulation.environment.addEntity(fox)
-            self.simulation.addEntityToTrackedEntities(fox)
+            self.__controller.spawnFox()
         if key == pygame.K_b:
-            rabbit = Rabbit("player-created-rabbit")
-            self.simulation.environment.addEntity(rabbit)
-            self.simulation.addEntityToTrackedEntities(rabbit)
+            self.__controller.spawnRabbit()
         if key == pygame.K_RIGHTBRACKET:
-            if self.__config.tickSpeed < self.__config.maxTickSpeed:
-                self.__config.tickSpeed += 1
+            self.__controller.increaseTickSpeed()
         if key == pygame.K_LEFTBRACKET:
-            if self.__config.tickSpeed > 1:
-                self.__config.tickSpeed -= 1
+            self.__controller.decreaseTickSpeed()
         if key == pygame.K_l:
-            if self.__config.limitTickSpeed:
-                self.__config.limitTickSpeed = False
-            else:
-                self.__config.limitTickSpeed = True
+            self.__controller.toggleTickSpeedLimit()
         if key == pygame.K_SPACE or key == pygame.K_ESCAPE:
-            if self.__paused:
-                self.__paused = False
-            else:
-                self.__paused = True
+            self.__controller.togglePause()
+        
+        # UI-specific controls (not in controller)
         if key == pygame.K_v:
             if self.__config.localView:
                 self.__config.localView = False

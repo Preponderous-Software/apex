@@ -27,8 +27,11 @@ class MainMenuScreen:
         ypos = y / 10
         self.graphik.drawText("Apex", xpos, ypos, 64, (255, 255, 255))
         ypos = y / 3
+        # Spell out the available keys instead of "press any key" so we
+        # don't have to react to e.g. an accidental letter, and so the
+        # affordance matches the buttons below it (Nielsen #4 / #5).
         self.graphik.drawText(
-            "press any key to start!", xpos, ypos, 32, (255, 255, 255)
+            "press ENTER to start  -  press Q to quit", xpos, ypos, 32, (255, 255, 255)
         )
 
     def drawMenuButtons(self):
@@ -78,7 +81,10 @@ class MainMenuScreen:
                 )
 
     def handleKeyDownEvent(self, key):
-        self.switchToSetupScreen()
+        if key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            self.switchToSetupScreen()
+        elif key in (pygame.K_q, pygame.K_ESCAPE):
+            self.quitApplication()
 
     def run(self):
         while not self.changeScreen:

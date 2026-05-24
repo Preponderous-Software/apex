@@ -3,6 +3,42 @@ This game allows you to manage a virtual environment containing entities that de
 
 <img src="pics/screenshot4.PNG" alt="screenshot" width="720"/>
 
+## UI Modes
+Apex can be run in two different modes:
+
+### Pygame GUI Mode (Default)
+The standard graphical interface with visual representation of the ecosystem.
+```bash
+python src/apex.py
+```
+
+### Text-Based Mode
+A lightweight console-based interface that visualizes the ecosystem using ASCII characters and displays simulation statistics. Features include:
+- Real-time environment visualization with colored ASCII characters
+- Non-blocking keyboard controls (same as GUI mode)
+- Interactive spawning of entities
+- Pause/resume, speed control, and debug mode
+
+```bash
+python src/apex.py --text
+```
+
+**Legend for Text Mode:**
+- `.` = Grass (green)
+- `x` = Excrement (yellow)
+- `C` = Chicken (yellow)
+- `P` = Pig (magenta)
+- `K` = Cow (cyan)
+- `W` = Wolf (red)
+- `F` = Fox (red)
+- `R` = Rabbit (white)
+
+The text mode is ideal for:
+- Running simulations on headless servers
+- Lower resource consumption
+- Remote SSH sessions
+- Automated testing and analysis
+
 ## Types of Living Entities
 - Chicken
 - Pig
@@ -19,15 +55,21 @@ If there is no grass, everything collapses.
 Living entities spawn excrement when their energy needs are met and this turns into grass over time.
 
 ## Controls
+
+### Pygame GUI Mode
+The following keyboard controls are available in **Pygame GUI Mode**:
+
 Key | Action
 ------------ | -------------
-space | pause/unpause
+space / esc | pause/unpause
+? / F1 | toggle in-game help overlay
 m | mute/unmute
 h | highlight oldest living entity
 v | toggle view (global/local)
 up | increase view distance (in local view)
 down | decrease view distance (in local view)
-d | debug mode
+e | toggle entity eyes
+d | debug mode (show stats panel)
 c | spawn a chicken
 p | spawn a pig
 k | spawn a cow
@@ -38,7 +80,29 @@ l | toggle tick speed limit
 ] | increase tick speed (if enabled)
 [ | decrease tick speed (if enabled)
 f11 | toggle fullscreen mode
-r | restart
+r | restart (show results)
+q | quit application
+
+On the main menu and setup screen, **ENTER/SPACE** advances and **ESC/Q** goes back/quits, so the whole app is navigable from the keyboard.
+
+### Text-Based Mode
+The following keyboard controls are available in **Text-Based Mode**:
+
+Key | Action
+------------ | -------------
+space / esc | pause/unpause
+? / h | show help & legend
+d | debug mode
+c | spawn a chicken
+p | spawn a pig
+k | spawn a cow
+w | spawn a wolf
+f | spawn a fox
+b | spawn a rabbit
+l | toggle tick speed limit
+] | increase tick speed (if enabled)
+[ | decrease tick speed (if enabled)
+r | restart simulation
 q | quit
 
 At this time, the user can pause/unpause, toggle the tick speed limit, increase/decrease the tick speed, manually spawn living entities, restart the simulation, enter debug mode and quit the application.
