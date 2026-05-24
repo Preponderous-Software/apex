@@ -66,7 +66,10 @@ class TextSimulationRunner:
         stdscr.nodelay(1)  # Non-blocking input
         stdscr.timeout(0)  # Don't wait for input
         
-        # Initialize color pairs if terminal supports colors
+        # Initialize color pairs if terminal supports colors. Wolf and fox
+        # both used red, which made the apex predators indistinguishable on
+        # the grid (Nielsen #4: consistency — distinct entities need distinct
+        # affordances).
         if curses.has_colors():
             curses.start_color()
             curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)   # Grass
@@ -74,17 +77,19 @@ class TextSimulationRunner:
             curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_BLACK) # Pig
             curses.init_pair(4, curses.COLOR_CYAN, curses.COLOR_BLACK)    # Cow
             curses.init_pair(5, curses.COLOR_RED, curses.COLOR_BLACK)     # Wolf
-            curses.init_pair(6, curses.COLOR_RED, curses.COLOR_BLACK)     # Fox
+            curses.init_pair(6, curses.COLOR_YELLOW, curses.COLOR_RED)    # Fox (distinct from wolf)
             curses.init_pair(7, curses.COLOR_WHITE, curses.COLOR_BLACK)   # Rabbit
             curses.init_pair(8, curses.COLOR_YELLOW, curses.COLOR_BLACK)  # Excrement
-        
+
         # Initialize simulation
         self.initializeSimulation()
-        
-        # Display initial instructions
+
+        # Display initial instructions and wait for the user to dismiss them
+        # (Nielsen #7: user control and freedom — don't take action on a
+        # timer the user can't see or control).
         self._display_instructions()
         stdscr.refresh()
-        time.sleep(2)
+        self._wait_for_keypress()
         
         # Main loop
         try:
@@ -156,35 +161,59 @@ class TextSimulationRunner:
         self.simulation.generateInitialEntities()
         self.simulation.placeInitialEntitiesInEnvironment()
     
+    HELP_LINES = [
+        "Apex Ecosystem Simulator - Text Mode",
+        "",
+        "Controls:",
+        "  SPACE / ESC : Pause / Resume",
+        "  ?           : Show this help",
+        "  d           : Toggle debug stats",
+        "  l           : Toggle tick-speed limit",
+        "  ] / [       : Increase / decrease tick speed",
+        "  r           : Restart simulation",
+        "  q           : Quit",
+        "",
+        "Spawn:",
+        "  c Chicken   p Pig      k Cow",
+        "  w Wolf      f Fox      b Rabbit",
+        "",
+        "Legend:",
+        "  . Grass     C Chicken  P Pig      K Cow",
+        "  W Wolf      F Fox      R Rabbit   x Excrement",
+        "",
+        "Press any key to continue...",
+    ]
+
     def _display_instructions(self):
-        """Display initial instructions."""
+        """Display initial instructions / help overlay."""
         self.stdscr.clear()
         height, width = self.stdscr.getmaxyx()
-        
-        title = "Apex Ecosystem Simulator - Text Mode"
-        self.stdscr.addstr(height // 2 - 5, (width - len(title)) // 2, title, curses.A_BOLD)
-        
-        instructions = [
-            "",
-            "Controls:",
-            "  SPACE: Pause/Resume",
-            "  d: Toggle debug mode",
-            "  c: Spawn chicken",
-            "  p: Spawn pig",
-            "  k: Spawn cow",
-            "  w: Spawn wolf",
-            "  f: Spawn fox",
-            "  b: Spawn rabbit",
-            "  l: Toggle tick speed limit",
-            "  ]: Increase tick speed",
-            "  [: Decrease tick speed",
-            "  q: Quit",
-            "",
-            "Starting simulation..."
-        ]
-        
-        for i, line in enumerate(instructions):
-            self.stdscr.addstr(height // 2 - 4 + i, (width - 40) // 2, line)
+        top = max(0, (height - len(self.HELP_LINES)) // 2)
+        # Right-align column choice keeps text on screen even on small terms.
+        col = max(0, (width - 44) // 2)
+        for i, line in enumerate(self.HELP_LINES):
+            if top + i >= height - 1:
+                break
+            attr = curses.A_BOLD if i == 0 else curses.A_NORMAL
+            try:
+                self.stdscr.addstr(top + i, col, line[:width - col - 1], attr)
+            except curses.error:
+                pass
+
+    def _wait_for_keypress(self):
+        """Block (with a short cooperative yield) until any key is pressed.
+
+        We can't simply call getch() in blocking mode because nodelay(1) is
+        already set; busy-loop with a small sleep so the terminal stays
+        responsive without spinning the CPU.
+        """
+        while True:
+            try:
+                if self.stdscr.getch() != -1:
+                    return
+            except curses.error:
+                return
+            time.sleep(0.05)
     
     def _handle_input(self):
         """Handle keyboard input (non-blocking)."""
@@ -223,6 +252,17 @@ class TextSimulationRunner:
                 self.controller.increaseTickSpeed()
             elif key == ord('['):
                 self.controller.decreaseTickSpeed()
+            elif key == ord('?') or key == ord('h'):
+                # Re-display the legend/help on demand (Nielsen #10).
+                self._display_instructions()
+                self.stdscr.refresh()
+                self._wait_for_keypress()
+                self.needsClear = True
+            elif key == ord('r'):
+                # Restart parity with pygame mode (Nielsen #4: consistency).
+                self.controller.quit()
+                self.initializeSimulation()
+                self.needsClear = True
         except (curses.error, ValueError):
             return  # Ignore unrecognized or invalid keys
         
@@ -245,15 +285,17 @@ class TextSimulationRunner:
             cellWidth = 2
             cellHeight = 1
             
-            # Calculate available space for grid
-            statsHeight = 12 if self.controller.isDebug() else 8
+            # Reserve room for: 4 stat lines, optional event line, optional
+            # debug line, a blank separator, and the status bar.
+            baseStats = 4 + (1 if self.lastMessage else 0) + (1 if self.controller.isDebug() else 0)
+            statsHeight = baseStats + 2  # +1 separator, +1 status bar
             availableHeight = height - statsHeight - 2
             availableWidth = width - 2
-            
+
             # Calculate how much of the grid we can display
-            maxDisplayRows = min(gridRows, availableHeight // cellHeight)
-            maxDisplayCols = min(gridCols, availableWidth // cellWidth)
-            
+            maxDisplayRows = min(gridRows, max(1, availableHeight // cellHeight))
+            maxDisplayCols = min(gridCols, max(1, availableWidth // cellWidth))
+
             # Draw the environment
             startY = 1
             for row in range(maxDisplayRows):
@@ -263,19 +305,28 @@ class TextSimulationRunner:
                         char, color = self._get_location_char(location)
                         try:
                             self.stdscr.addstr(startY + row * cellHeight, 1 + col * cellWidth, char * cellWidth, color)
-                        except:
+                        except curses.error:
                             pass  # Ignore if we're at the edge
-            
+
+            # Truncation hint so the user knows the grid extends off-screen
+            # (Nielsen #1: visibility of system status).
+            if maxDisplayRows < gridRows or maxDisplayCols < gridCols:
+                try:
+                    hint = f"(viewport {maxDisplayCols}x{maxDisplayRows} of {gridCols}x{gridRows}; resize terminal to see more)"
+                    self.stdscr.addstr(startY + maxDisplayRows, 1, hint[:width - 2], curses.A_DIM)
+                except curses.error:
+                    pass
+
             # Draw stats below the grid
             statsY = startY + maxDisplayRows * cellHeight + 1
             self._draw_stats(statsY, width)
-            
+
             # Draw status bar at bottom
             self._draw_status_bar(height - 1, width)
-            
+
             self.stdscr.refresh()
-        except:
-            pass  # Ignore drawing errors
+        except curses.error:
+            pass  # Drawing past the edge of the terminal; ignore
     
     def _get_location_char(self, location):
         """Get the character and color for a location."""
@@ -316,46 +367,68 @@ class TextSimulationRunner:
             return '?', curses.color_pair(0)
     
     def _draw_stats(self, startY, width):
-        """Draw simulation statistics."""
+        """Draw simulation statistics + an always-visible legend.
+
+        Keeping the legend on-screen means the user never has to recall what
+        a `K` or `F` glyph stands for (Nielsen #6: recognition over recall).
+        Population counts use full words rather than single-letter keys so
+        the line is self-evident without the legend (DMMT: scannability).
+        """
         try:
+            speed = (
+                f"{self.config.tickSpeed}/{self.config.maxTickSpeed}"
+                if self.config.limitTickSpeed
+                else "unlimited"
+            )
             stats = [
-                f"Tick: {self.simulation.numTicks}  Living: {self.simulation.getNumLivingEntities()}  Total: {len(self.simulation.entities)}",
-                f"Grass: {self.simulation.getNumberOfEntitiesOfType(Grass)}  Excrement: {self.simulation.getNumExcrement()}",
-                f"C:{self.simulation.getNumberOfLivingEntitiesOfType(Chicken)} P:{self.simulation.getNumberOfLivingEntitiesOfType(Pig)} K:{self.simulation.getNumberOfLivingEntitiesOfType(Cow)} W:{self.simulation.getNumberOfLivingEntitiesOfType(Wolf)} F:{self.simulation.getNumberOfLivingEntitiesOfType(Fox)} R:{self.simulation.getNumberOfLivingEntitiesOfType(Rabbit)}",
+                f"Tick {self.simulation.numTicks}   "
+                f"Living {self.simulation.getNumLivingEntities()}   "
+                f"Total {len(self.simulation.entities)}   "
+                f"Speed {speed}",
+                (
+                    f"Chickens {self.simulation.getNumberOfLivingEntitiesOfType(Chicken)}   "
+                    f"Pigs {self.simulation.getNumberOfLivingEntitiesOfType(Pig)}   "
+                    f"Cows {self.simulation.getNumberOfLivingEntitiesOfType(Cow)}   "
+                    f"Wolves {self.simulation.getNumberOfLivingEntitiesOfType(Wolf)}   "
+                    f"Foxes {self.simulation.getNumberOfLivingEntitiesOfType(Fox)}   "
+                    f"Rabbits {self.simulation.getNumberOfLivingEntitiesOfType(Rabbit)}"
+                ),
+                f"Grass {self.simulation.getNumberOfEntitiesOfType(Grass)}   "
+                f"Excrement {self.simulation.getNumExcrement()}",
+                "Legend: . grass  x excrement  C chick  P pig  K cow  W wolf  F fox  R rabbit",
             ]
-            
-            if self.config.limitTickSpeed:
-                stats.append(f"Tick Speed: {self.config.tickSpeed}/{self.config.maxTickSpeed}")
-            
-            # Add a blank line before the last message
+
             if self.lastMessage:
-                stats.append("")
-                stats.append(f"Event: {self.lastMessage[:width-10]}")
-            
+                stats.append(f"Event: {self.lastMessage}")
+
             for i, stat in enumerate(stats):
                 if startY + i < curses.LINES - 2:
                     self.stdscr.addstr(startY + i, 1, stat[:width-2])
-                    
+
             if self.controller.isDebug():
-                # Add more detailed stats in debug mode
                 debug_stats = [
-                    "",
-                    f"Grid: {self.simulation.environment.getGrid().getColumns()}x{self.simulation.environment.getGrid().getRows()}",
-                    f"Deaths: {self.simulation.getNumDeaths()}",
+                    f"Grid {self.simulation.environment.getGrid().getColumns()}x{self.simulation.environment.getGrid().getRows()}   "
+                    f"Deaths {self.simulation.getNumDeaths()}",
                 ]
                 for i, stat in enumerate(debug_stats):
                     if startY + len(stats) + i < curses.LINES - 2:
                         self.stdscr.addstr(startY + len(stats) + i, 1, stat[:width-2])
-        except:
+        except curses.error:
             pass
-    
+
     def _draw_status_bar(self, y, width):
-        """Draw status bar at bottom."""
+        """Draw status bar at bottom — reflects current mode flags so the
+        user always knows what state the simulation is in (Nielsen #1)."""
         try:
-            status = ""
+            flags = []
             if self.controller.isPaused():
-                status = "PAUSED - "
-            status += "q:Quit SPACE:Pause d:Debug [/]:Speed c/p/k/w/f/b:Spawn"
+                flags.append("PAUSED")
+            if self.controller.isDebug():
+                flags.append("DEBUG")
+            if not self.config.limitTickSpeed:
+                flags.append("UNLIMITED SPEED")
+            prefix = (" | ".join(flags) + "  ") if flags else ""
+            status = prefix + "space pause  ? help  r restart  q quit"
             self.stdscr.addstr(y, 0, status[:width], curses.A_REVERSE)
         except:
             pass
