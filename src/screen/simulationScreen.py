@@ -31,6 +31,7 @@ class SimulationScreen:
         self.__textAlertFactory = TextAlertFactory()
         self.__textAlertDrawTool = TextAlertDrawTool()
         self.__selectedEntity = None
+        self.__showHelp = False
     
     # public methods ---------------------------------------------------------
     # Invokes the simulation screen loop.
@@ -72,19 +73,19 @@ class SimulationScreen:
                     self.__config.localView = False
 
             self.__drawVersion()
+
+            # Overlays go before display.update() so they actually reach
+            # the framebuffer. The earlier code drew PAUSED after the
+            # update() and before the next-frame fill(black) erased it,
+            # which meant the indicator never appeared.
+            if self.__controller.isPaused():
+                self.__drawPausedOverlay()
+            if self.__showHelp:
+                self.__drawHelpOverlay()
+
             pygame.display.update()
             if (self.__config.limitTickSpeed):
                 time.sleep((self.__config.maxTickSpeed - self.__config.tickSpeed)/self.__config.maxTickSpeed)
-            
-            if self.__controller.isPaused():
-                x, y = self.__graphik.gameDisplay.get_size()
-                # Draw a semi-opaque backdrop so PAUSED is readable over any
-                # location color, then draw the label in white.
-                backdrop = pygame.Surface((x, 80), pygame.SRCALPHA)
-                backdrop.fill((0, 0, 0, 160))
-                self.__graphik.gameDisplay.blit(backdrop, (0, y/2 - 40))
-                self.__graphik.drawText("PAUSED", x/2, y/2, 50, self.__config.white)
-                self.__graphik.drawText("press space to resume", x/2, y/2 + 30, 18, self.__config.white)
 
             if self.__controller.shouldEnd():
                 time.sleep(1)
@@ -261,6 +262,58 @@ class SimulationScreen:
             if textAlert.duration == 0:
                 self.__textAlerts.remove(textAlert)
 
+    def __drawPausedOverlay(self):
+        x, y = self.__graphik.gameDisplay.get_size()
+        backdrop = pygame.Surface((x, 80), pygame.SRCALPHA)
+        backdrop.fill((0, 0, 0, 160))
+        self.__graphik.gameDisplay.blit(backdrop, (0, y/2 - 40))
+        self.__graphik.drawText("PAUSED", x/2, y/2, 50, self.__config.white)
+        self.__graphik.drawText("press space to resume", x/2, y/2 + 30, 18, self.__config.white)
+
+    HELP_LINES = [
+        "Controls",
+        "",
+        "  SPACE / ESC   pause / resume",
+        "  ? or F1       toggle this help",
+        "  d             toggle debug stats",
+        "  v             toggle global / local view",
+        "  up / down     local view distance",
+        "  h             highlight oldest entity",
+        "  e             toggle entity eyes",
+        "  m             mute / unmute",
+        "  F11           toggle fullscreen",
+        "  l             toggle tick-speed limit",
+        "  ] / [         increase / decrease tick speed",
+        "  r             restart (show results)",
+        "  q             quit application",
+        "",
+        "Spawn:  c chicken  p pig  k cow  w wolf  f fox  b rabbit",
+        "",
+        "Press ? or F1 to dismiss",
+    ]
+
+    def __drawHelpOverlay(self):
+        """In-game help so users don't need to alt-tab to the README
+        (Nielsen #10: help & documentation; DMMT: self-evidence)."""
+        x, y = self.__graphik.gameDisplay.get_size()
+        panelWidth = min(int(x * 0.9), 720)
+        lineHeight = 26
+        panelHeight = lineHeight * len(self.HELP_LINES) + 40
+        panelX = (x - panelWidth) // 2
+        panelY = max(20, (y - panelHeight) // 2)
+        panel = pygame.Surface((panelWidth, panelHeight), pygame.SRCALPHA)
+        panel.fill((0, 0, 0, 210))
+        self.__graphik.gameDisplay.blit(panel, (panelX, panelY))
+        for i, line in enumerate(self.HELP_LINES):
+            size = 28 if i == 0 else 18
+            self.__graphik.drawText(
+                line,
+                panelX + panelWidth // 2,
+                panelY + 24 + lineHeight * i,
+                size,
+                self.__config.white,
+            )
+
     # Draws statistics to the screen as "Label: value" rows on a dark
     # panel so they remain legible over any environment color (DMMT:
     # scannability; Nielsen #8: aesthetic & minimalist design).
@@ -309,6 +362,10 @@ class SimulationScreen:
 
     # Defines the controls of the application.
     def __handleKeyDownEvent(self, key):
+        # Help overlay — `?` or F1, the two near-universal conventions.
+        if key == pygame.K_F1 or key == pygame.K_SLASH or key == pygame.K_QUESTION:
+            self.__showHelp = not self.__showHelp
+            return
         # Use controller for gameplay actions
         if key == pygame.K_d:
             self.__controller.toggleDebug()

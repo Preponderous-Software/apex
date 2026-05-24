@@ -70,16 +70,20 @@ class SetupScreen:
             self.switchToSimulationScreen,
         )
         
+        # Use plain-English labels rather than the internal camelCase
+        # identifiers — programming jargon in a setup screen makes the
+        # user stop and think (DMMT) and breaks Nielsen #2: match between
+        # the system and the real world.
         y = y / 2
-        self.drawIntegerConfigOptionSetter(x, y, "gridSize", self.config.gridSize, self.decreaseGridSize, self.increaseGridSize)
+        self.drawIntegerConfigOptionSetter(x, y, "Grid size", self.config.gridSize, self.decreaseGridSize, self.increaseGridSize)
         y += 150
-        self.drawIntegerConfigOptionSetter(x, y, "waterFactor", self.config.waterFactor, self.decreaseWaterFactor, self.increaseWaterFactor)
+        self.drawIntegerConfigOptionSetter(x, y, "Water factor", self.config.waterFactor, self.decreaseWaterFactor, self.increaseWaterFactor)
         y += 150
-        self.drawIntegerConfigOptionSetter(x, y, "rockFactor", self.config.rockFactor, self.decreaseRockFactor, self.increaseRockFactor)
+        self.drawIntegerConfigOptionSetter(x, y, "Rock factor", self.config.rockFactor, self.decreaseRockFactor, self.increaseRockFactor)
         y += 150
-        self.drawIntegerConfigOptionSetter(x, y, "grassFactor", self.config.grassFactor, self.decreaseGrassFactor, self.increaseGrassFactor)
+        self.drawIntegerConfigOptionSetter(x, y, "Grass factor", self.config.grassFactor, self.decreaseGrassFactor, self.increaseGrassFactor)
         y += 150
-        self.drawIntegerConfigOptionSetter(x, y, "grassGrowTime", self.config.grassGrowTime, self.decreaseGrassGrowTime, self.increaseGrassGrowTime)
+        self.drawIntegerConfigOptionSetter(x, y, "Grass grow time", self.config.grassGrowTime, self.decreaseGrassGrowTime, self.increaseGrassGrowTime)
 
         # Place "randomize" mirroring the main-menu button position so the
         # two header affordances feel intentional. The original (0,0)

@@ -61,13 +61,15 @@ The following keyboard controls are available in **Pygame GUI Mode**:
 
 Key | Action
 ------------ | -------------
-space | pause/unpause
+space / esc | pause/unpause
+? / F1 | toggle in-game help overlay
 m | mute/unmute
 h | highlight oldest living entity
 v | toggle view (global/local)
 up | increase view distance (in local view)
 down | decrease view distance (in local view)
-d | debug mode
+e | toggle entity eyes
+d | debug mode (show stats panel)
 c | spawn a chicken
 p | spawn a pig
 k | spawn a cow
@@ -78,15 +80,18 @@ l | toggle tick speed limit
 ] | increase tick speed (if enabled)
 [ | decrease tick speed (if enabled)
 f11 | toggle fullscreen mode
-r | restart
-q | quit
+r | restart (show results)
+q | quit application
+
+On the main menu and setup screen, **ENTER/SPACE** advances and **ESC/Q** goes back/quits, so the whole app is navigable from the keyboard.
 
 ### Text-Based Mode
 The following keyboard controls are available in **Text-Based Mode**:
 
 Key | Action
 ------------ | -------------
-space | pause/unpause
+space / esc | pause/unpause
+? / h | show help & legend
 d | debug mode
 c | spawn a chicken
 p | spawn a pig
@@ -97,6 +102,7 @@ b | spawn a rabbit
 l | toggle tick speed limit
 ] | increase tick speed (if enabled)
 [ | decrease tick speed (if enabled)
+r | restart simulation
 q | quit
 
 At this time, the user can pause/unpause, toggle the tick speed limit, increase/decrease the tick speed, manually spawn living entities, restart the simulation, enter debug mode and quit the application.
