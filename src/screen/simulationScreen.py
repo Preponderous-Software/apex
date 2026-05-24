@@ -78,7 +78,13 @@ class SimulationScreen:
             
             if self.__controller.isPaused():
                 x, y = self.__graphik.gameDisplay.get_size()
-                self.__graphik.drawText("PAUSED", x/2, y/2, 50, self.__config.black)
+                # Draw a semi-opaque backdrop so PAUSED is readable over any
+                # location color, then draw the label in white.
+                backdrop = pygame.Surface((x, 80), pygame.SRCALPHA)
+                backdrop.fill((0, 0, 0, 160))
+                self.__graphik.gameDisplay.blit(backdrop, (0, y/2 - 40))
+                self.__graphik.drawText("PAUSED", x/2, y/2, 50, self.__config.white)
+                self.__graphik.drawText("press space to resume", x/2, y/2 + 30, 18, self.__config.white)
 
             if self.__controller.shouldEnd():
                 time.sleep(1)

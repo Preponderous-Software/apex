@@ -190,7 +190,11 @@ class TextSimulationRunner:
         """Handle keyboard input (non-blocking)."""
         try:
             key = self.stdscr.getch()
-            
+        except curses.error:
+            return
+        if key == -1:
+            return
+        try:
             # Use controller for all gameplay actions
             if key == ord(' '):
                 self.controller.togglePause()
@@ -219,9 +223,8 @@ class TextSimulationRunner:
                 self.controller.increaseTickSpeed()
             elif key == ord('['):
                 self.controller.decreaseTickSpeed()
-                    
-        except:
-            pass  # Ignore input errors
+        except (curses.error, ValueError):
+            return  # Ignore unrecognized or invalid keys
         
     def _draw_screen(self):
         """Draw the environment visualization and stats."""

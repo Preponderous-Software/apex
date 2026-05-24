@@ -98,7 +98,12 @@ class SetupScreen:
         )
         
     def randomizeConfig(self):
-        self.config = Config()
+        # Mutate the shared Config in place so changes propagate to the rest
+        # of the app — assigning a new Config() would drop the reference held
+        # by Apex/Simulation/etc and silently do nothing visible to the user.
+        fresh = Config()
+        for attr, value in vars(fresh).items():
+            setattr(self.config, attr, value)
     
     def drawIntegerConfigOptionSetter(self, x, y, configOptionName, configOptionValue, decreaseFunction, increaseFunction):
         # given x and y, draw text and buttons next to the text
