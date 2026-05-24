@@ -313,7 +313,14 @@ class SimulationScreen:
         if key == pygame.K_d:
             self.__controller.toggleDebug()
         if key == pygame.K_q:
+            # `q` used to call controller.quit() in isolation, which printed
+            # the cleanup summary but never actually left the simulation
+            # screen — the loop kept running because nothing read
+            # simulation.running here. Quit the application properly so the
+            # advertised control matches its behavior (Nielsen #4).
             self.__controller.quit()
+            self.__nextScreen = ScreenType.NONE
+            self.__changeScreen = True
         if key == pygame.K_r:
             self.__controller.quit()
             self.__nextScreen = ScreenType.RESULTS_SCREEN

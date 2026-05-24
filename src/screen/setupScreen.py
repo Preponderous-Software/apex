@@ -219,6 +219,15 @@ class SetupScreen:
                     self.nextScreen = ScreenType.NONE
                     self.changeScreen = True
                     break
+                # Keyboard shortcuts for users who don't want to mouse over
+                # to the buttons (Nielsen #7: flexibility & efficiency of
+                # use). ESC mirrors the typical "back" affordance, and
+                # ENTER mirrors "start simulation".
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.switchToMainMenuScreen()
+                    elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                        self.switchToSimulationScreen()
 
             self.graphik.getGameDisplay().fill((0, 0, 0))
             self.drawText()
