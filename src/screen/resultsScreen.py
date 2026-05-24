@@ -69,10 +69,13 @@ class ResultsScreen:
             "deaths: " + str(self.simulation.getNumDeaths()), xpos, ypos, 32, (255, 255, 255)
         )
         
-        # display text "press any key to return to setup"
+        # Prompt a specific key rather than "any key" so an accidental
+        # keystroke (autorepeat from the simulation, stray bump of the
+        # keyboard) doesn't immediately throw the user back into setup
+        # before they've read their results (Nielsen #5: error prevention).
         ypos = y - y / 10
         self.graphik.drawText(
-            "press any key to return to setup", xpos, ypos, 32, (255, 255, 255)
+            "press ENTER or SPACE to return to setup", xpos, ypos, 32, (255, 255, 255)
         )
 
     def drawVersion(self):
@@ -90,7 +93,8 @@ class ResultsScreen:
                 )
 
     def handleKeyDownEvent(self, key):
-        self.switchToSetupScreen()
+        if key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            self.switchToSetupScreen()
 
     def run(self):
         while not self.changeScreen:

@@ -261,34 +261,51 @@ class SimulationScreen:
             if textAlert.duration == 0:
                 self.__textAlerts.remove(textAlert)
 
-    # Draws some statistics to the screen, which are updated each tick. This can be laggy.
+    # Draws statistics to the screen as "Label: value" rows on a dark
+    # panel so they remain legible over any environment color (DMMT:
+    # scannability; Nielsen #8: aesthetic & minimalist design).
     def __displayStats(self):
-        startingX = 100
-        startingY = 10
-        text = []
-        if self.__config.limitTickSpeed:
-            self.__addStatToText(text, "Tick Speed:", str(self.__config.tickSpeed))
-        self.__addStatToText(text, "Num Ticks:", str(self.simulation.numTicks))
-        self.__addStatToText(text, "Entities:", str(len(self.simulation.entities)))
-        self.__addStatToText(text, "Living Entities:", str(self.simulation.getNumLivingEntities()))
-        self.__addStatToText(text, "Grass:", str(self.simulation.getNumberOfEntitiesOfType(Grass)))
-        self.__addStatToText(text, "Excrement:", str(self.simulation.getNumExcrement()))
-        self.__addStatToText(text, "Chickens:", str(self.simulation.getNumberOfLivingEntitiesOfType(Chicken)))
-        self.__addStatToText(text, "Pigs:", str(self.simulation.getNumberOfLivingEntitiesOfType(Pig)))
-        self.__addStatToText(text, "Cows:", str(self.simulation.getNumberOfLivingEntitiesOfType(Cow)))
-        self.__addStatToText(text, "Wolves:", str(self.simulation.getNumberOfLivingEntitiesOfType(Wolf)))
-        self.__addStatToText(text, "Foxes:", str(self.simulation.getNumberOfLivingEntitiesOfType(Fox)))
-        self.__addStatToText(text, "Rabbits:", str(self.simulation.getNumberOfLivingEntitiesOfType(Rabbit)))
+        speedText = (
+            str(self.__config.tickSpeed) + "/" + str(self.__config.maxTickSpeed)
+            if self.__config.limitTickSpeed else "unlimited"
+        )
+        rows = [
+            ("Ticks", str(self.simulation.numTicks)),
+            ("Living", str(self.simulation.getNumLivingEntities())),
+            ("Total entities", str(len(self.simulation.entities))),
+            ("Speed", speedText),
+            ("Grass", str(self.simulation.getNumberOfEntitiesOfType(Grass))),
+            ("Excrement", str(self.simulation.getNumExcrement())),
+            ("Chickens", str(self.simulation.getNumberOfLivingEntitiesOfType(Chicken))),
+            ("Pigs", str(self.simulation.getNumberOfLivingEntitiesOfType(Pig))),
+            ("Cows", str(self.simulation.getNumberOfLivingEntitiesOfType(Cow))),
+            ("Wolves", str(self.simulation.getNumberOfLivingEntitiesOfType(Wolf))),
+            ("Foxes", str(self.simulation.getNumberOfLivingEntitiesOfType(Fox))),
+            ("Rabbits", str(self.simulation.getNumberOfLivingEntitiesOfType(Rabbit))),
+        ]
 
-        buffer = self.__config.textSize
+        textSize = self.__config.textSize
+        lineHeight = int(textSize * 1.4)
+        padding = 8
+        panelWidth = 220
+        panelHeight = padding * 2 + lineHeight * len(rows)
+        panelX, panelY = 10, 10
 
-        for i in range(0, len(text)):
-            self.__graphik.drawText(text[i], startingX, startingY + buffer*i, self.__config.textSize, self.__config.black)
+        panel = pygame.Surface((panelWidth, panelHeight), pygame.SRCALPHA)
+        panel.fill((0, 0, 0, 170))
+        self.__graphik.gameDisplay.blit(panel, (panelX, panelY))
 
-    def __addStatToText(self, text, key, value):
-        text.append(key)
-        text.append(value)
-        text.append("")
+        for i, (label, value) in enumerate(rows):
+            line = label + ": " + value
+            # drawText centers on its anchor, so anchor at the row midline.
+            y = panelY + padding + lineHeight * i + lineHeight // 2
+            self.__graphik.drawText(
+                line,
+                panelX + panelWidth // 2,
+                y,
+                textSize,
+                self.__config.white,
+            )
 
     # Defines the controls of the application.
     def __handleKeyDownEvent(self, key):

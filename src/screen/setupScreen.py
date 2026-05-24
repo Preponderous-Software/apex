@@ -80,16 +80,21 @@ class SetupScreen:
         self.drawIntegerConfigOptionSetter(x, y, "grassFactor", self.config.grassFactor, self.decreaseGrassFactor, self.increaseGrassFactor)
         y += 150
         self.drawIntegerConfigOptionSetter(x, y, "grassGrowTime", self.config.grassGrowTime, self.decreaseGrassGrowTime, self.increaseGrassGrowTime)
-        
-        randomizeButtonWidth = 200
-        randomizeButtonHeight = 50
-        randomizeButtonX = 0
-        randomizeButtonY = 0
+
+        # Place "randomize" mirroring the main-menu button position so the
+        # two header affordances feel intentional. The original (0,0)
+        # placement made it look like a stray debug control and gave no
+        # spatial cue that it affected the config options below.
+        screenX, screenY = self.graphik.getGameDisplay().get_size()
+        randomizeWidth = screenX / 5
+        randomizeHeight = screenY / 10
+        randomizeX = screenX - randomizeWidth - screenX / 10
+        randomizeY = screenY / 10
         self.graphik.drawButton(
-            randomizeButtonX,
-            randomizeButtonY,
-            randomizeButtonWidth,
-            randomizeButtonHeight,
+            randomizeX,
+            randomizeY,
+            randomizeWidth,
+            randomizeHeight,
             backgroundColor,
             (0, 0, 0),
             30,
