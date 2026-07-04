@@ -43,6 +43,9 @@ q | quit
 
 At this time, the user can pause/unpause, toggle the tick speed limit, increase/decrease the tick speed, manually spawn living entities, restart the simulation, enter debug mode and quit the application.
 
+## Research
+See [RESEARCH.md](RESEARCH.md) for the ecological and artificial-life research this simulator's mechanics are grounded in, and how to use it when designing new features.
+
 ## Support
 You can find the support discord server [here](https://discord.gg/49J4RHQxhy).
 
