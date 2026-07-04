@@ -24,24 +24,34 @@ class MoveActionHandler:
         elif direction == 3:
             return grid.getLeft(location)
         
-    def searchForFood(self, entity, grid: Grid, location: Location):
-        # search current location
+    def countEdibleEntities(self, entity, location: Location):
+        count = 0
         for eid in location.getEntities():
-            targetEntity = location.getEntities()[eid]
-            if entity.canEat(targetEntity):
-                return location
-        
-        # search nearby locations
+            if entity.canEat(location.getEntities()[eid]):
+                count += 1
+        return count
+
+    def searchForFood(self, entity, grid: Grid, location: Location):
+        # optimal foraging theory (RESEARCH.md): don't abandon a patch that already has food.
+        if self.countEdibleEntities(entity, location) > 0:
+            return location
+
+        # search nearby locations and prefer the richest patch found within the search budget,
+        # rather than settling for the first patch with any food at all.
+        bestLocation = -1
+        bestFoodCount = 0
         attempts = 0
-        while attempts < random.randrange(1, 5):
+        maxAttempts = random.randrange(1, 5)
+        while attempts < maxAttempts:
             searchLocation = self.chooseRandomDirection(grid, location)
+            attempts += 1
             if searchLocation == -1:
                 continue
-            for e in searchLocation.getEntities():
-                if entity.canEat(e):
-                    return searchLocation
-            attempts += 1
-        return -1
+            foodCount = self.countEdibleEntities(entity, searchLocation)
+            if foodCount > bestFoodCount:
+                bestFoodCount = foodCount
+                bestLocation = searchLocation
+        return bestLocation
     
     def isLocationImpassible(self, location: Location):
         # search current location

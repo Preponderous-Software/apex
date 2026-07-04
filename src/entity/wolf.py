@@ -12,4 +12,5 @@ from entity.rabbit import Rabbit
 # @since July 27th, 2022
 class Wolf(LivingEntity):
     def __init__(self, name):
-        LivingEntity.__init__(self, name, (145, random.randrange(145, 155), random.randrange(145, 155)), False, random.randrange(100, 200), [Chicken, Pig, Cow, Fox, Rabbit])
+        # Apex predator: the most K-selected species, matching its larger energy pool and scarcer numbers (RESEARCH.md, "r/K selection theory" and "Trophic energy transfer").
+        LivingEntity.__init__(self, name, (145, random.randrange(145, 155), random.randrange(145, 155)), False, random.randrange(100, 200), [Chicken, Pig, Cow, Fox, Rabbit], reproductiveRate=0.4)
