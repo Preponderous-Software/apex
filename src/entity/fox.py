@@ -11,4 +11,5 @@ from entity.rabbit import Rabbit
 # @since August 2nd, 2022
 class Fox(LivingEntity):
     def __init__(self, name):
-        LivingEntity.__init__(self,name,(255, random.randrange(163, 167), 0), False, random.randrange(50, 100),[Chicken, Pig, Rabbit])
+        # Smaller mesopredator: more K-selected than its prey, less so than the apex predator (RESEARCH.md, "r/K selection theory").
+        LivingEntity.__init__(self,name,(255, random.randrange(163, 167), 0), False, random.randrange(50, 100),[Chicken, Pig, Rabbit], reproductiveRate=0.8)

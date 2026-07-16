@@ -8,4 +8,5 @@ from entity.livingEntity import LivingEntity
 # @since August 2nd, 2022
 class Rabbit(LivingEntity):
     def __init__(self, name):
-        LivingEntity.__init__(self, name, (250,220,200), False, random.randrange(20, 30), [Grass, Berries])
+        # Textbook r-strategist: the highest reproduction rate in the ecosystem (RESEARCH.md, "r/K selection theory").
+        LivingEntity.__init__(self, name, (250,220,200), False, random.randrange(20, 30), [Grass, Berries], reproductiveRate=2.5)

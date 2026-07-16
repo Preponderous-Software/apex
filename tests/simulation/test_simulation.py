@@ -5,6 +5,8 @@ from entity.berryBush import BerryBush
 from entity.chicken import Chicken
 from entity.excrement import Excrement
 from entity.grass import Grass
+from entity.water import Water
+from lib.pyenvlib.grid import Grid
 from lib.pyenvlib.location import Location
 import service
 from src.simulation import simulation
@@ -757,28 +759,98 @@ def test_decreaseEnergyForLivingEntities_OutOfEnergy():
 def test_shouldExcrementTurnIntoGrass_False():
     # prepare
     testSim = getTestSimulation()
+    grid = Grid(3, 3)
+    testSim.environment.setGrid(grid)
+    location = grid.getLocationByCoordinates(1, 1)
+    excrement = Excrement(1)
+    location.addEntity(excrement)
     testSim.getConfig().grassGrowTime = 2
     testSim.numTicks = 1
-    excrement = Excrement(1)
-    
+
     # execute
     result = testSim.shouldExcrementTurnIntoGrass(excrement)
-    
+
     # assert
     assert result == False
-    
+
 def test_shouldExcrementTurnIntoGrass_True():
     # prepare
     testSim = getTestSimulation()
+    grid = Grid(3, 3)
+    testSim.environment.setGrid(grid)
+    location = grid.getLocationByCoordinates(1, 1)
+    excrement = Excrement(7)
+    location.addEntity(excrement)
     testSim.getConfig().grassGrowTime = 2
     testSim.numTicks = 10
-    excrement = Excrement(7)
-    
+
     # execute
     result = testSim.shouldExcrementTurnIntoGrass(excrement)
-    
+
     # assert
     assert result == True
+
+def test_shouldExcrementTurnIntoGrass_NearWater_AcceleratesDecomposition():
+    # prepare
+    testSim = getTestSimulation()
+    grid = Grid(3, 3)
+    testSim.environment.setGrid(grid)
+    location = grid.getLocationByCoordinates(1, 1)
+    waterLocation = grid.getLocationByCoordinates(1, 0)
+    waterLocation.addEntity(Water())
+    excrement = Excrement(1)
+    location.addEntity(excrement)
+    testSim.getConfig().grassGrowTime = 10
+    testSim.numTicks = 7
+
+    # execute
+    result = testSim.shouldExcrementTurnIntoGrass(excrement)
+
+    # assert (age of 6 wouldn't clear a grow time of 10, but does clear the halved 5)
+    assert result == True
+
+def test_shouldExcrementTurnIntoGrass_FarFromWater_DoesNotAccelerateDecomposition():
+    # prepare
+    testSim = getTestSimulation()
+    grid = Grid(3, 3)
+    testSim.environment.setGrid(grid)
+    location = grid.getLocationByCoordinates(1, 1)
+    excrement = Excrement(1)
+    location.addEntity(excrement)
+    testSim.getConfig().grassGrowTime = 10
+    testSim.numTicks = 7
+
+    # execute
+    result = testSim.shouldExcrementTurnIntoGrass(excrement)
+
+    # assert (age of 6 does not clear a grow time of 10 when there's no water nearby)
+    assert result == False
+
+def test_isNearWater_True():
+    # prepare
+    testSim = getTestSimulation()
+    grid = Grid(3, 3)
+    location = grid.getLocationByCoordinates(1, 1)
+    waterLocation = grid.getLocationByCoordinates(1, 0)
+    waterLocation.addEntity(Water())
+
+    # execute
+    result = testSim.isNearWater(location, grid)
+
+    # assert
+    assert result == True
+
+def test_isNearWater_False():
+    # prepare
+    testSim = getTestSimulation()
+    grid = Grid(3, 3)
+    location = grid.getLocationByCoordinates(1, 1)
+
+    # execute
+    result = testSim.isNearWater(location, grid)
+
+    # assert
+    assert result == False
 
 @patch("src.simulation.simulation.random")
 def test_shouldBerryBushGainEnergy_True(mock_random):
@@ -836,10 +908,12 @@ def test_shouldEntityReproduce_True(mock_random):
     testSim = getTestSimulation()
     mock_random.randrange.return_value = 5
     testSim.getConfig().chanceToReproduce = 0.10
-    
+    entity = MagicMock()
+    entity.getReproductiveRate.return_value = 1.0
+
     # execute
-    result = testSim.shouldEntityReproduce()
-    
+    result = testSim.shouldEntityReproduce(entity)
+
     # assert
     assert result == True
 
@@ -849,9 +923,44 @@ def test_shouldEntityReproduce_False(mock_random):
     testSim = getTestSimulation()
     mock_random.randrange.return_value = 50
     testSim.getConfig().chanceToReproduce = 0.10
-    
+    entity = MagicMock()
+    entity.getReproductiveRate.return_value = 1.0
+
     # execute
-    result = testSim.shouldEntityReproduce()
-    
+    result = testSim.shouldEntityReproduce(entity)
+
     # assert
     assert result == False
+
+@patch("src.simulation.simulation.random")
+def test_shouldEntityReproduce_ScalesWithReproductiveRate(mock_random):
+    # prepare: base chance alone (10%) wouldn't beat a roll of 15, but an r-selected
+    # species with a 2x reproductive rate (20%) should.
+    testSim = getTestSimulation()
+    mock_random.randrange.return_value = 15
+    testSim.getConfig().chanceToReproduce = 0.10
+    entity = MagicMock()
+    entity.getReproductiveRate.return_value = 2.0
+
+    # execute
+    result = testSim.shouldEntityReproduce(entity)
+
+    # assert
+    assert result == True
+
+@patch("src.simulation.simulation.random")
+def test_shouldEntityReproduce_ChanceIsCappedAt100Percent(mock_random):
+    # prepare: base chance (60%) times reproductive rate (2.0) would be 120% uncapped;
+    # it should be clamped to 100% rather than always succeeding by more than that.
+    testSim = getTestSimulation()
+    mock_random.randrange.return_value = 99
+    testSim.getConfig().chanceToReproduce = 0.60
+    entity = MagicMock()
+    entity.getReproductiveRate.return_value = 2.0
+
+    # execute
+    result = testSim.shouldEntityReproduce(entity)
+
+    # assert
+    assert result == True
+    mock_random.randrange.assert_called_once_with(0, 100)

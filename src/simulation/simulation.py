@@ -301,7 +301,7 @@ class Simulation:
             else:
                 if self.shouldEntityExcrete():
                     self.__excreteActionHandler.initiateExcreteAction(entity, self.addEntityToTrackedEntities, self.numTicks)
-                if self.shouldEntityReproduce():
+                if self.shouldEntityReproduce(entity):
                     self.__reproduceActionHandler.initiateReproduceAction(entity, self.addEntityToTrackedEntities)
 
     def decreaseEnergyForLivingEntities(self):
@@ -311,14 +311,32 @@ class Simulation:
             if entity.getEnergy() <= 0:
                 self.removeEntity(entity)
                 
+    def isNearWater(self, location, grid):
+        neighboringLocations = [grid.getUp(location), grid.getRight(location), grid.getDown(location), grid.getLeft(location)]
+        for neighboringLocation in neighboringLocations:
+            if neighboringLocation == -1:
+                continue
+            for entityId in neighboringLocation.getEntities():
+                if type(neighboringLocation.getEntity(entityId)) is Water:
+                    return True
+        return False
+
     def shouldExcrementTurnIntoGrass(self, excrement):
-        return (self.numTicks - excrement.getTick()) > self.getConfig().grassGrowTime
+        grid = self.environment.getGrid()
+        location = grid.getLocation(excrement.getLocationID())
+        requiredGrowTime = self.getConfig().grassGrowTime
+        if self.isNearWater(location, grid):
+            # moisture speeds up decomposition of organic matter into nutrients (RESEARCH.md, "Detritus, decomposition, and nutrient cycling")
+            requiredGrowTime = requiredGrowTime // 2
+        return (self.numTicks - excrement.getTick()) > requiredGrowTime
 
     def shouldBerryBushGainEnergy(self):
         return random.randrange(0, 100) < 10
 
     def shouldEntityExcrete(self):
         return random.randrange(0, 100) < (self.getConfig().chanceToExcrete*100)
-    
-    def shouldEntityReproduce(self):
-        return random.randrange(0, 100) < (self.getConfig().chanceToReproduce*100)
+
+    def shouldEntityReproduce(self, entity):
+        # r/K selection theory (RESEARCH.md): each species' reproductive rate scales the shared base chance.
+        chance = min(self.getConfig().chanceToReproduce * entity.getReproductiveRate(), 1.0)
+        return random.randrange(0, 100) < (chance*100)
