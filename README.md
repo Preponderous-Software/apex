@@ -13,6 +13,8 @@ This game allows you to manage a virtual environment containing entities that de
 
 Each of these attempt to gain energy and reproduce. At the bottom of the food chain is Grass, which chickens, pigs, cows and rabbits are able to eat.
 
+Berry bushes are a second food source. A bush that has accumulated enough energy periodically grows Berries on its own location, up to a cap. Chickens, pigs and rabbits eat berries; pigs can also eat the bush itself. Cows eat grass only.
+
 If there is no grass, everything collapses. 
 
 ## How does grass respawn?
