@@ -73,7 +73,9 @@ Reference: MacArthur, R.H. & Wilson, E.O. (1967), *The Theory of Island Biogeogr
 
 ### 1.9 Detritus, decomposition, and nutrient cycling
 
-Real ecosystems return energy to primary producers via a detritus/decomposer pathway (dead matter and waste broken down by decomposers into nutrients that plants use), not just direct photosynthesis (Swift, Heal & Anderson, 1979). Apex's `Excrement` → `Grass` mechanic (`shouldExcrementTurnIntoGrass` in `simulation.py`, gated by `grassGrowTime`) is a simplified version of exactly this nutrient cycle, and open issue #67 ("make excrement turn into grass only if near water") and #69 ("excrement not turning into grass sometimes") are both, in effect, requests to make the decomposition model closer to how real nutrient cycling depends on moisture and decomposer activity.
+Real ecosystems return energy to primary producers via a detritus/decomposer pathway (dead matter and waste broken down by decomposers into nutrients that plants use), not just direct photosynthesis (Swift, Heal & Anderson, 1979). Apex's `Excrement` → `Grass` mechanic (`shouldExcrementTurnIntoGrass` in `simulation.py`) is a simplified version of exactly this nutrient cycle. It is gated by `Config.grassGrowTime`, halved when `isNearWater` finds a `Water` entity in one of the four neighbouring locations — a direct model of moisture accelerating decomposition.
+
+What remains open: moisture is a speed-up, not a requirement, so decomposition still completes in a desert. Open issue #67 asks for the stricter version (excrement turns into grass *only* near water), which is a balance decision rather than a correctness one; #69 ("excrement not turning into grass sometimes") is a separate bug in the same mechanic. Decomposer organisms are not modelled at all, so there is no population that can itself be limited.
 
 Reference: Swift, M.J., Heal, O.W. & Anderson, J.M. (1979), *Decomposition in Terrestrial Ecosystems*, Blackwell Scientific.
 
