@@ -21,9 +21,10 @@ Living entities spawn excrement when their energy needs are met and this turns i
 ## Controls
 Key | Action
 ------------ | -------------
-space | pause/unpause
+space / escape | pause/unpause
 m | mute/unmute
 h | highlight oldest living entity
+e | toggle entity eyes
 v | toggle view (global/local)
 up | increase view distance (in local view)
 down | decrease view distance (in local view)
