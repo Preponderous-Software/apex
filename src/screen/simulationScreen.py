@@ -107,6 +107,19 @@ class SimulationScreen:
         self.__initializeCaption()
 
     # private methods --------------------------------------------------------
+    # Re-creates the game display so that it matches the current fullscreen setting, and points
+    # everything that holds a reference to the old surface at the new one. Called when F11 toggles
+    # Config.fullscreen. The non-fullscreen mode is recreated as RESIZABLE so that leaving
+    # fullscreen does not leave the user with a fixed-size window.
+    def __initializeGameDisplay(self):
+        if self.__config.fullscreen:
+            gameDisplay = pygame.display.set_mode((self.__config.displayWidth, self.__config.displayHeight), pygame.FULLSCREEN)
+        else:
+            gameDisplay = pygame.display.set_mode((self.__config.displayWidth, self.__config.displayHeight), pygame.RESIZABLE)
+        self.__graphik.gameDisplay = gameDisplay
+        self.simulation.setGameDisplay(gameDisplay)
+        self.simulation.initializeLocationWidthAndHeight()
+
     def __initializeCaption(self):
         caption = "Apex - " + self.simulation.name + " - " + str(self.simulation.environment.getGrid().getColumns()) + "x" + str(self.simulation.environment.getGrid().getRows())
         if self.__config.muted:
@@ -296,7 +309,8 @@ class SimulationScreen:
                 self.__debug = True
         if key == pygame.K_q:
             self.simulation.cleanup()
-            self.simulation.running = False
+            self.__nextScreen = ScreenType.NONE
+            self.__changeScreen = True
         if key == pygame.K_r:
             self.simulation.cleanup()
             self.__nextScreen = ScreenType.SETUP_SCREEN
@@ -362,7 +376,7 @@ class SimulationScreen:
                 self.__config.fullscreen = False
             else:
                 self.__config.fullscreen = True
-            self.initializeGameDisplay()
+            self.__initializeGameDisplay()
         if key == pygame.K_m:
             if self.__config.muted:
                 self.__config.muted = False

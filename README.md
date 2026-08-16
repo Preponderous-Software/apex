@@ -13,6 +13,8 @@ This game allows you to manage a virtual environment containing entities that de
 
 Each of these attempt to gain energy and reproduce. At the bottom of the food chain is Grass, which chickens, pigs, cows and rabbits are able to eat.
 
+Berry bushes are a second food source. A bush that has accumulated enough energy periodically grows Berries on its own location, up to a cap. Chickens, pigs and rabbits eat berries; pigs can also eat the bush itself. Cows eat grass only.
+
 If there is no grass, everything collapses. 
 
 ## How does grass respawn?
@@ -21,9 +23,10 @@ Living entities spawn excrement when their energy needs are met and this turns i
 ## Controls
 Key | Action
 ------------ | -------------
-space | pause/unpause
+space / escape | pause/unpause
 m | mute/unmute
 h | highlight oldest living entity
+e | toggle entity eyes
 v | toggle view (global/local)
 up | increase view distance (in local view)
 down | decrease view distance (in local view)
