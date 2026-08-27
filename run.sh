@@ -1,1 +1,1 @@
-python src/apex.py
+python3 src/apex.py
