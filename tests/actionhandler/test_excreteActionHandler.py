@@ -36,9 +36,9 @@ def test_getRandomDirection_mapsEachRollToTheMatchingNeighbor(mock_random):
         grid.getLocationByCoordinates(1, 2),  # down
         grid.getLocationByCoordinates(0, 1),  # left
     ]
+    mock_random.randrange.side_effect = [0, 1, 2, 3]
 
     # execute
-    mock_random.randrange.side_effect = [0, 1, 2, 3]
     results = [handler.getRandomDirection(grid, location) for _ in range(4)]
 
     # assert

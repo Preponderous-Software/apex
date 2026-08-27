@@ -8,10 +8,7 @@ from entity.water import Water
 from lib.pyenvlib.grid import Grid
 
 
-def getHandler():
-    return MoveActionHandler(MagicMock())
-
-def getHandlerFor(grid):
+def getHandler(grid=None):
     environment = MagicMock()
     environment.getGrid.return_value = grid
     return MoveActionHandler(environment)
@@ -120,7 +117,7 @@ def test_isLocationImpassible_isTrueOnlyWhenASolidEntityIsPresent():
 def test_initiateMoveAction_doesNothingWhenTheEntityDoesNotNeedEnergy():
     # prepare
     grid = Grid(3, 3)
-    handler = getHandlerFor(grid)
+    handler = getHandler(grid)
     location = grid.getLocationByCoordinates(1, 1)
     rabbit = Rabbit("test rabbit")  # starts at its target energy
     location.addEntity(rabbit)
@@ -137,7 +134,7 @@ def test_initiateMoveAction_doesNothingWhenTheEntityDoesNotNeedEnergy():
 def test_initiateMoveAction_movesTowardFoodAndChargesTheActionCost(mock_random):
     # prepare
     grid = Grid(3, 3)
-    handler = getHandlerFor(grid)
+    handler = getHandler(grid)
     location = grid.getLocationByCoordinates(1, 1)
     up = grid.getLocationByCoordinates(1, 0)
     up.addEntity(Grass())
@@ -159,7 +156,7 @@ def test_initiateMoveAction_movesTowardFoodAndChargesTheActionCost(mock_random):
 def test_initiateMoveAction_wandersInARandomDirectionWhenNoFoodIsFound(mock_random):
     # prepare
     grid = Grid(3, 3)
-    handler = getHandlerFor(grid)
+    handler = getHandler(grid)
     location = grid.getLocationByCoordinates(1, 1)
     right = grid.getLocationByCoordinates(2, 1)
     rabbit = getHungryRabbit()
@@ -177,7 +174,7 @@ def test_initiateMoveAction_wandersInARandomDirectionWhenNoFoodIsFound(mock_rand
 def test_initiateMoveAction_skipsImpassableDestinationsWhileWandering(mock_random):
     # prepare
     grid = Grid(3, 3)
-    handler = getHandlerFor(grid)
+    handler = getHandler(grid)
     location = grid.getLocationByCoordinates(1, 1)
     right = grid.getLocationByCoordinates(2, 1)
     right.addEntity(Water())  # solid
@@ -198,7 +195,7 @@ def test_initiateMoveAction_skipsImpassableDestinationsWhileWandering(mock_rando
 def test_initiateMoveAction_staysPutWhenEveryDirectionIsOffGrid(mock_random):
     # prepare: a single-location grid, so every neighbor is a border.
     grid = Grid(1, 1)
-    handler = getHandlerFor(grid)
+    handler = getHandler(grid)
     location = grid.getLocationByCoordinates(0, 0)
     rabbit = getHungryRabbit()
     location.addEntity(rabbit)
