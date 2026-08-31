@@ -34,8 +34,9 @@ def countRabbits(grid):
     return count
 
 # mate selection tests -------------------------------------------------------
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.reproduceActionHandler.random")
-def test_initiateReproduceAction_doesNothingWhenTheEntityIsAlone(mock_random):
+def test_initiateReproduceAction_doesNothingWhenTheEntityIsAlone(mock_random, mock_base_random):
     # prepare
     environment = Environment("test", 3)
     grid = environment.getGrid()
@@ -55,8 +56,9 @@ def test_initiateReproduceAction_doesNothingWhenTheEntityIsAlone(mock_random):
     callback.assert_not_called()
     mock_random.randrange.assert_not_called()
 
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.reproduceActionHandler.random")
-def test_initiateReproduceAction_doesNothingWhenTheOnlyCandidateIsTheSameSex(mock_random):
+def test_initiateReproduceAction_doesNothingWhenTheOnlyCandidateIsTheSameSex(mock_random, mock_base_random):
     # prepare
     environment = Environment("test", 3)
     grid = environment.getGrid()
@@ -73,8 +75,9 @@ def test_initiateReproduceAction_doesNothingWhenTheOnlyCandidateIsTheSameSex(moc
     assert countRabbits(grid) == 2
     callback.assert_not_called()
 
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.reproduceActionHandler.random")
-def test_initiateReproduceAction_doesNothingWhenTheOnlyCandidateIsADifferentSpecies(mock_random):
+def test_initiateReproduceAction_doesNothingWhenTheOnlyCandidateIsADifferentSpecies(mock_random, mock_base_random):
     # prepare
     environment = Environment("test", 3)
     grid = environment.getGrid()
@@ -96,8 +99,9 @@ def test_initiateReproduceAction_doesNothingWhenTheOnlyCandidateIsADifferentSpec
     callback.assert_not_called()
 
 # successful reproduction tests ----------------------------------------------
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.reproduceActionHandler.random")
-def test_initiateReproduceAction_placesTheChildOnTheChosenNeighbor(mock_random):
+def test_initiateReproduceAction_placesTheChildOnTheChosenNeighbor(mock_random, mock_base_random):
     # prepare
     environment = Environment("test", 3)
     grid = environment.getGrid()
@@ -105,7 +109,8 @@ def test_initiateReproduceAction_placesTheChildOnTheChosenNeighbor(mock_random):
     up = grid.getLocationByCoordinates(1, 0)
     handler, soundService = getHandler(environment)
     parent, mate = getPair(location)
-    mock_random.randrange.side_effect = [3, 0]  # energy cost, then "up"
+    mock_random.randrange.return_value = 3  # energy cost
+    mock_base_random.randrange.return_value = 0  # "up"
     callback = MagicMock()
 
     # execute
@@ -119,8 +124,9 @@ def test_initiateReproduceAction_placesTheChildOnTheChosenNeighbor(mock_random):
     callback.assert_called_once_with(child)
     assert handler.childCount == 1
 
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.reproduceActionHandler.random")
-def test_initiateReproduceAction_chargesBothParentsTheSameEnergyCost(mock_random):
+def test_initiateReproduceAction_chargesBothParentsTheSameEnergyCost(mock_random, mock_base_random):
     # prepare
     environment = Environment("test", 3)
     grid = environment.getGrid()
@@ -129,7 +135,8 @@ def test_initiateReproduceAction_chargesBothParentsTheSameEnergyCost(mock_random
     parent, mate = getPair(location)
     parentEnergyBefore = parent.getEnergy()
     mateEnergyBefore = mate.getEnergy()
-    mock_random.randrange.side_effect = [3, 0]  # energy cost, then "up"
+    mock_random.randrange.return_value = 3  # energy cost
+    mock_base_random.randrange.return_value = 0  # "up"
 
     # execute
     handler.initiateReproduceAction(parent, MagicMock())
@@ -138,14 +145,16 @@ def test_initiateReproduceAction_chargesBothParentsTheSameEnergyCost(mock_random
     assert parent.getEnergy() == parentEnergyBefore - 3
     assert mate.getEnergy() == mateEnergyBefore - 3
 
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.reproduceActionHandler.random")
-def test_initiateReproduceAction_playsTheReproduceSoundWhenNotMuted(mock_random):
+def test_initiateReproduceAction_playsTheReproduceSoundWhenNotMuted(mock_random, mock_base_random):
     # prepare
     environment = Environment("test", 3)
     location = environment.getGrid().getLocationByCoordinates(1, 1)
     handler, soundService = getHandler(environment, muted=False)
     parent, mate = getPair(location)
-    mock_random.randrange.side_effect = [3, 0]  # energy cost, then "up"
+    mock_random.randrange.return_value = 3  # energy cost
+    mock_base_random.randrange.return_value = 0  # "up"
 
     # execute
     handler.initiateReproduceAction(parent, MagicMock())
@@ -153,14 +162,16 @@ def test_initiateReproduceAction_playsTheReproduceSoundWhenNotMuted(mock_random)
     # assert
     soundService.playReproduceSoundEffect.assert_called_once()
 
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.reproduceActionHandler.random")
-def test_initiateReproduceAction_staysSilentWhenMuted(mock_random):
+def test_initiateReproduceAction_staysSilentWhenMuted(mock_random, mock_base_random):
     # prepare
     environment = Environment("test", 3)
     location = environment.getGrid().getLocationByCoordinates(1, 1)
     handler, soundService = getHandler(environment, muted=True)
     parent, mate = getPair(location)
-    mock_random.randrange.side_effect = [3, 0]  # energy cost, then "up"
+    mock_random.randrange.return_value = 3  # energy cost
+    mock_base_random.randrange.return_value = 0  # "up"
 
     # execute
     handler.initiateReproduceAction(parent, MagicMock())
@@ -170,8 +181,9 @@ def test_initiateReproduceAction_staysSilentWhenMuted(mock_random):
     assert handler.childCount == 1
 
 # invalid target tests -------------------------------------------------------
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.reproduceActionHandler.random")
-def test_initiateReproduceAction_discardsTheChildAtABorder(mock_random):
+def test_initiateReproduceAction_discardsTheChildAtABorder(mock_random, mock_base_random):
     # prepare: the parents sit on the top row, so the location above them is off-grid.
     environment = Environment("test", 3)
     grid = environment.getGrid()
@@ -179,7 +191,8 @@ def test_initiateReproduceAction_discardsTheChildAtABorder(mock_random):
     handler, soundService = getHandler(environment)
     parent, mate = getPair(location)
     parentEnergyBefore = parent.getEnergy()
-    mock_random.randrange.side_effect = [3, 0]  # energy cost, then "up"
+    mock_random.randrange.return_value = 3  # energy cost
+    mock_base_random.randrange.return_value = 0  # "up"
     callback = MagicMock()
 
     # execute
@@ -192,8 +205,9 @@ def test_initiateReproduceAction_discardsTheChildAtABorder(mock_random):
     callback.assert_not_called()
     assert handler.childCount == 0
 
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.reproduceActionHandler.random")
-def test_initiateReproduceAction_discardsTheChildWhenTheNeighborIsSolid(mock_random):
+def test_initiateReproduceAction_discardsTheChildWhenTheNeighborIsSolid(mock_random, mock_base_random):
     # prepare
     environment = Environment("test", 3)
     grid = environment.getGrid()
@@ -201,7 +215,8 @@ def test_initiateReproduceAction_discardsTheChildWhenTheNeighborIsSolid(mock_ran
     grid.getLocationByCoordinates(1, 0).addEntity(Water())  # solid
     handler, soundService = getHandler(environment)
     parent, mate = getPair(location)
-    mock_random.randrange.side_effect = [3, 0]  # energy cost, then "up"
+    mock_random.randrange.return_value = 3  # energy cost
+    mock_base_random.randrange.return_value = 0  # "up"
     callback = MagicMock()
 
     # execute

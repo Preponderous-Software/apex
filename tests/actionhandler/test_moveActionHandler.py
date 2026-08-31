@@ -3,7 +3,6 @@ from unittest.mock import MagicMock, patch
 from actionhandler.moveActionHandler import MoveActionHandler
 from entity.grass import Grass
 from entity.rabbit import Rabbit
-from entity.rock import Rock
 from entity.water import Water
 from lib.pyenvlib.grid import Grid
 
@@ -54,8 +53,9 @@ def test_searchForFood_prefersCurrentLocationWhenFoodIsAlreadyPresent():
     # assert
     assert result == location
 
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.moveActionHandler.random")
-def test_searchForFood_prefersTheRichestNeighboringPatch(mock_random):
+def test_searchForFood_prefersTheRichestNeighboringPatch(mock_random, mock_base_random):
     # prepare: no food in the current location; two neighboring patches have food,
     # one richer than the other. Optimal foraging theory predicts a preference for
     # the denser patch (RESEARCH.md, "Optimal foraging theory").
@@ -74,9 +74,10 @@ def test_searchForFood_prefersTheRichestNeighboringPatch(mock_random):
     down.addEntity(Grass())
     down.addEntity(Grass())
 
-    # first randrange call picks maxAttempts (visit all 4 directions),
-    # remaining calls pick the direction for each attempt: up, right, down, left
-    mock_random.randrange.side_effect = [4, 0, 1, 2, 3]
+    # the move handler draws maxAttempts (visit all 4 directions); the shared base
+    # draws the direction for each attempt: up, right, down, left
+    mock_random.randrange.return_value = 4
+    mock_base_random.randrange.side_effect = [0, 1, 2, 3]
 
     # execute
     result = handler.searchForFood(rabbit, grid, location)
@@ -97,22 +98,6 @@ def test_searchForFood_returnsNegativeOneWhenNoFoodIsFound():
     # assert
     assert result == -1
 
-# isLocationImpassible tests -------------------------------------------------
-def test_isLocationImpassible_isTrueOnlyWhenASolidEntityIsPresent():
-    # prepare
-    handler = getHandler()
-    grid = Grid(3, 3)
-    empty = grid.getLocationByCoordinates(0, 0)
-    passable = grid.getLocationByCoordinates(1, 1)
-    passable.addEntity(Grass())  # not solid
-    solid = grid.getLocationByCoordinates(2, 2)
-    solid.addEntity(Rock())  # solid
-
-    # execute / assert
-    assert handler.isLocationImpassible(empty) == False
-    assert handler.isLocationImpassible(passable) == False
-    assert handler.isLocationImpassible(solid) == True
-
 # initiateMoveAction tests ---------------------------------------------------
 def test_initiateMoveAction_doesNothingWhenTheEntityDoesNotNeedEnergy():
     # prepare
@@ -130,8 +115,9 @@ def test_initiateMoveAction_doesNothingWhenTheEntityDoesNotNeedEnergy():
     assert location.isEntityPresent(rabbit)
     assert rabbit.getEnergy() == energyBefore
 
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.moveActionHandler.random")
-def test_initiateMoveAction_movesTowardFoodAndChargesTheActionCost(mock_random):
+def test_initiateMoveAction_movesTowardFoodAndChargesTheActionCost(mock_random, mock_base_random):
     # prepare
     grid = Grid(3, 3)
     handler = getHandler(grid)
@@ -142,7 +128,8 @@ def test_initiateMoveAction_movesTowardFoodAndChargesTheActionCost(mock_random):
     location.addEntity(rabbit)
     energyBefore = rabbit.getEnergy()
     # one search attempt, which looks up and finds the grass
-    mock_random.randrange.side_effect = [1, 0]
+    mock_random.randrange.return_value = 1
+    mock_base_random.randrange.side_effect = [0]
 
     # execute
     handler.initiateMoveAction(rabbit)
@@ -152,8 +139,9 @@ def test_initiateMoveAction_movesTowardFoodAndChargesTheActionCost(mock_random):
     assert location.isEntityPresent(rabbit) == False
     assert rabbit.getEnergy() == energyBefore - handler.energyCost
 
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.moveActionHandler.random")
-def test_initiateMoveAction_wandersInARandomDirectionWhenNoFoodIsFound(mock_random):
+def test_initiateMoveAction_wandersInARandomDirectionWhenNoFoodIsFound(mock_random, mock_base_random):
     # prepare
     grid = Grid(3, 3)
     handler = getHandler(grid)
@@ -162,7 +150,8 @@ def test_initiateMoveAction_wandersInARandomDirectionWhenNoFoodIsFound(mock_rand
     rabbit = getHungryRabbit()
     location.addEntity(rabbit)
     # one fruitless search attempt looking up, then a wander to the right
-    mock_random.randrange.side_effect = [1, 0, 1]
+    mock_random.randrange.return_value = 1
+    mock_base_random.randrange.side_effect = [0, 1]
 
     # execute
     handler.initiateMoveAction(rabbit)
@@ -170,8 +159,9 @@ def test_initiateMoveAction_wandersInARandomDirectionWhenNoFoodIsFound(mock_rand
     # assert
     assert right.isEntityPresent(rabbit)
 
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.moveActionHandler.random")
-def test_initiateMoveAction_skipsImpassableDestinationsWhileWandering(mock_random):
+def test_initiateMoveAction_skipsImpassableDestinationsWhileWandering(mock_random, mock_base_random):
     # prepare
     grid = Grid(3, 3)
     handler = getHandler(grid)
@@ -182,7 +172,8 @@ def test_initiateMoveAction_skipsImpassableDestinationsWhileWandering(mock_rando
     rabbit = getHungryRabbit()
     location.addEntity(rabbit)
     # one fruitless search attempt looking up, then a blocked wander right, then down
-    mock_random.randrange.side_effect = [1, 0, 1, 2]
+    mock_random.randrange.return_value = 1
+    mock_base_random.randrange.side_effect = [0, 1, 2]
 
     # execute
     handler.initiateMoveAction(rabbit)
@@ -191,8 +182,9 @@ def test_initiateMoveAction_skipsImpassableDestinationsWhileWandering(mock_rando
     assert down.isEntityPresent(rabbit)
     assert right.isEntityPresent(rabbit) == False
 
+@patch("actionhandler.actionHandler.random")
 @patch("actionhandler.moveActionHandler.random")
-def test_initiateMoveAction_staysPutWhenEveryDirectionIsOffGrid(mock_random):
+def test_initiateMoveAction_staysPutWhenEveryDirectionIsOffGrid(mock_random, mock_base_random):
     # prepare: a single-location grid, so every neighbor is a border.
     grid = Grid(1, 1)
     handler = getHandler(grid)
@@ -200,7 +192,8 @@ def test_initiateMoveAction_staysPutWhenEveryDirectionIsOffGrid(mock_random):
     rabbit = getHungryRabbit()
     location.addEntity(rabbit)
     energyBefore = rabbit.getEnergy()
-    mock_random.randrange.return_value = 0
+    mock_random.randrange.return_value = 1
+    mock_base_random.randrange.return_value = 0
 
     # execute
     handler.initiateMoveAction(rabbit)
