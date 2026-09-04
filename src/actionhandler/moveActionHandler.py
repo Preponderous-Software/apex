@@ -1,5 +1,6 @@
 import random
 
+from actionhandler.actionHandler import ActionHandler
 from lib.pyenvlib.entity import Entity
 from lib.pyenvlib.grid import Grid
 from lib.pyenvlib.location import Location
@@ -7,23 +8,12 @@ from lib.pyenvlib.location import Location
 
 # @author Daniel McCoy Stephenson
 # @since July 26th, 2022
-class MoveActionHandler:
+class MoveActionHandler(ActionHandler):
     def __init__(self, environment):
-        self.environment = environment
+        super().__init__(environment)
         self.debug = False
         self.energyCost = 1
 
-    def chooseRandomDirection(self, grid: Grid, location: Location):
-        direction = random.randrange(0, 4)
-        if direction == 0:
-            return grid.getUp(location)
-        elif direction == 1:
-            return grid.getRight(location)
-        elif direction == 2:
-            return grid.getDown(location)
-        elif direction == 3:
-            return grid.getLeft(location)
-        
     def countEdibleEntities(self, entity, location: Location):
         count = 0
         for eid in location.getEntities():
@@ -43,7 +33,7 @@ class MoveActionHandler:
         attempts = 0
         maxAttempts = random.randrange(1, 5)
         while attempts < maxAttempts:
-            searchLocation = self.chooseRandomDirection(grid, location)
+            searchLocation = self.getRandomAdjacentLocation(grid, location)
             attempts += 1
             if searchLocation == -1:
                 continue
@@ -52,15 +42,7 @@ class MoveActionHandler:
                 bestFoodCount = foodCount
                 bestLocation = searchLocation
         return bestLocation
-    
-    def isLocationImpassible(self, location: Location):
-        # search current location
-        for eid in location.getEntities():
-            entity = location.getEntities()[eid]
-            if entity.isSolid():
-                return True
-        return False
-        
+
     def initiateMoveAction(self, entity: Entity):
         # get location
         locationID = entity.getLocationID()
@@ -76,7 +58,7 @@ class MoveActionHandler:
         if newLocation == -1 or self.isLocationImpassible(newLocation):
             # no food found
             for i in range(0, 10):
-                newLocation = self.chooseRandomDirection(grid, location)
+                newLocation = self.getRandomAdjacentLocation(grid, location)
 
                 if (newLocation == -1 or self.isLocationImpassible(newLocation)):
                     continue

@@ -1,9 +1,8 @@
 import random
 
+from actionhandler.actionHandler import ActionHandler
 from lib.pyenvlib.entity import Entity
 from lib.pyenvlib.environment import Environment
-from lib.pyenvlib.grid import Grid
-from lib.pyenvlib.location import Location
 
 from simulation.config import Config
 from service.soundService import SoundService
@@ -11,33 +10,14 @@ from service.soundService import SoundService
 
 # @author Daniel McCoy Stephenson
 # @since July 27th, 2022
-class ReproduceActionHandler:
+class ReproduceActionHandler(ActionHandler):
 
     def __init__(self, environment: Environment, soundService: SoundService, config: Config):
-        self.environment = environment
+        super().__init__(environment)
         self.childCount = 0
         self.soundService = soundService
         self.config = config
-    
-    def getRandomDirection(self, grid: Grid, location: Location):
-        direction = random.randrange(0, 4)
-        if direction == 0:
-            return grid.getUp(location)
-        elif direction == 1:
-            return grid.getRight(location)
-        elif direction == 2:
-            return grid.getDown(location)
-        elif direction == 3:
-            return grid.getLeft(location)
-    
-    def isLocationImpassible(self, location: Location):
-        # search current location
-        for eid in location.getEntities():
-            entity = location.getEntities()[eid]
-            if entity.isSolid():
-                return True
-        return False
-        
+
     def initiateReproduceAction(self, entity: Entity, callbackFunction):
         # get location
         locationID = entity.getLocationID()
@@ -61,7 +41,7 @@ class ReproduceActionHandler:
 
         name = entity.getName()
         child = type(entity)(name)
-        targetLocation = self.getRandomDirection(grid, location)
+        targetLocation = self.getRandomAdjacentLocation(grid, location)
         if targetLocation == -1 or self.isLocationImpassible(targetLocation):
             targetLocation = location
             return

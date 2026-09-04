@@ -23,45 +23,8 @@ def getGridWithRabbitAt(x, y):
 def getExcrement(location):
     return [entity for entity in location.getEntities().values() if isinstance(entity, Excrement)]
 
-# getRandomDirection tests ---------------------------------------------------
-@patch("actionhandler.excreteActionHandler.random")
-def test_getRandomDirection_mapsEachRollToTheMatchingNeighbor(mock_random):
-    # prepare
-    grid = Grid(3, 3)
-    handler = getHandler(grid)
-    location = grid.getLocationByCoordinates(1, 1)
-    expected = [
-        grid.getLocationByCoordinates(1, 0),  # up
-        grid.getLocationByCoordinates(2, 1),  # right
-        grid.getLocationByCoordinates(1, 2),  # down
-        grid.getLocationByCoordinates(0, 1),  # left
-    ]
-    mock_random.randrange.side_effect = [0, 1, 2, 3]
-
-    # execute
-    results = [handler.getRandomDirection(grid, location) for _ in range(4)]
-
-    # assert
-    assert results == expected
-
-# isLocationImpassible tests -------------------------------------------------
-def test_isLocationImpassible_isTrueOnlyWhenASolidEntityIsPresent():
-    # prepare
-    grid = Grid(3, 3)
-    handler = getHandler(grid)
-    empty = grid.getLocationByCoordinates(0, 0)
-    passable = grid.getLocationByCoordinates(1, 1)
-    passable.addEntity(Rabbit("test rabbit"))  # not solid
-    solid = grid.getLocationByCoordinates(2, 2)
-    solid.addEntity(Water())  # solid
-
-    # execute / assert
-    assert handler.isLocationImpassible(empty) == False
-    assert handler.isLocationImpassible(passable) == False
-    assert handler.isLocationImpassible(solid) == True
-
 # initiateExcreteAction tests ------------------------------------------------
-@patch("actionhandler.excreteActionHandler.random")
+@patch("actionhandler.actionHandler.random")
 def test_initiateExcreteAction_placesExcrementOnTheChosenNeighbor(mock_random):
     # prepare
     grid, location, rabbit = getGridWithRabbitAt(1, 1)
@@ -80,7 +43,7 @@ def test_initiateExcreteAction_placesExcrementOnTheChosenNeighbor(mock_random):
     assert getExcrement(location) == []
     callback.assert_called_once_with(excrement[0])
 
-@patch("actionhandler.excreteActionHandler.random")
+@patch("actionhandler.actionHandler.random")
 def test_initiateExcreteAction_fallsBackToTheEntitysOwnLocationAtABorder(mock_random):
     # prepare: the entity sits on the top row, so the location above it is off-grid.
     grid, location, rabbit = getGridWithRabbitAt(1, 0)
@@ -96,7 +59,7 @@ def test_initiateExcreteAction_fallsBackToTheEntitysOwnLocationAtABorder(mock_ra
     assert len(getExcrement(location)) == 1
     callback.assert_not_called()
 
-@patch("actionhandler.excreteActionHandler.random")
+@patch("actionhandler.actionHandler.random")
 def test_initiateExcreteAction_fallsBackToTheEntitysOwnLocationWhenTheNeighborIsSolid(mock_random):
     # prepare
     grid, location, rabbit = getGridWithRabbitAt(1, 1)
@@ -114,7 +77,7 @@ def test_initiateExcreteAction_fallsBackToTheEntitysOwnLocationWhenTheNeighborIs
     assert getExcrement(up) == []
     callback.assert_not_called()
 
-@patch("actionhandler.excreteActionHandler.random")
+@patch("actionhandler.actionHandler.random")
 def test_initiateExcreteAction_chargesTheActionCostOnBothBranches(mock_random):
     # prepare
     grid, location, rabbit = getGridWithRabbitAt(1, 1)
