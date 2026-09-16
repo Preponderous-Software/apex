@@ -47,19 +47,26 @@ q | quit
 At this time, the user can pause/unpause, toggle the tick speed limit, increase/decrease the tick speed, manually spawn living entities, restart the simulation, enter debug mode and quit the application.
 
 ## Usage reporting
-Apex reports that it was used to [trace](https://github.com/Stephenson-Software/trace) at `trace.danielstephenson.dev`: a `startup` event when the game starts, carrying only the program name (`apex`) and the version from `version.txt`, and a `simulation-started` event when a simulation begins. Nothing about you, your machine, or the simulation's contents is sent. The reporting happens on a background thread, never blocks the game, and is dropped silently if the service is unreachable.
+Usage reporting is on by default: Apex sends its name (`apex`), the version from `version.txt` and the events `startup` (when the game starts) and `simulation-started` (when a simulation begins) to [trace](https://github.com/Stephenson-Software/trace) at `https://trace.danielstephenson.dev`. Nothing about you, your machine, your IP address or the simulation's contents is sent. The reporting happens on a background thread, never blocks the game, and is dropped silently if the service is unreachable.
 
-Reporting is on by default. The first run creates a `settings.json` next to `version.txt` and prints a one-line notice; to turn reporting off, edit that file:
+The first run creates a `settings.json` next to `version.txt` and prints a one-line notice. To turn reporting off, any one of these is enough:
 
-```json
-{
-    "usage_reporting": {
-        "enabled": false
-    }
-}
-```
+- `"usage_reporting": {"enabled": false}` in `settings.json`:
 
-The `usage_reporting.endpoint` and `usage_reporting.key` entries in the same block select where reports go and the key they are sent with.
+  ```json
+  {
+      "usage_reporting": {
+          "enabled": false
+      }
+  }
+  ```
+
+- the environment variable `TRACE_USAGE_REPORTING=off` (also `false`, `0`, `no`), which turns off every program that reports to trace
+- the environment variable `DO_NOT_TRACK=1` (see [consoledonottrack.com](https://consoledonottrack.com))
+
+The environment variables win over `settings.json`. The `usage_reporting.endpoint` and `usage_reporting.key` entries in the same block select where reports go and the key they are sent with.
+
+Details: https://github.com/Stephenson-Software/trace#usage-reporting
 
 ## Research
 See [RESEARCH.md](RESEARCH.md) for the ecological and artificial-life research this simulator's mechanics are grounded in, and how to use it when designing new features.
