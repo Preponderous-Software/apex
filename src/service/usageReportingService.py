@@ -2,7 +2,7 @@ import atexit
 import json
 import os
 
-from lib.tracelib.trace_client import TraceClient
+from lib.tracelib.trace_client import REASON_ENVIRONMENT, TraceClient
 
 
 # @author Daniel McCoy Stephenson
@@ -16,8 +16,12 @@ class UsageReportingService:
 
     Reporting is on by default and switched off by setting
     ``usage_reporting.enabled`` to ``false`` in ``settings.json`` next to
-    ``version.txt``. The file is created on the first run after this
-    feature was added, and a one-line notice is printed exactly that once.
+    ``version.txt``, or for every trace-reporting program at once with the
+    ``TRACE_USAGE_REPORTING=off`` or ``DO_NOT_TRACK=1`` environment
+    variables (the vendored client checks those first, so they win over the
+    settings file). The file is created on the first run after this feature
+    was added, and a one-line notice is printed exactly that once. Details:
+    https://github.com/Stephenson-Software/trace#usage-reporting
 
     Every call returns immediately and never raises: the network happens on
     a daemon thread owned by the vendored trace client.
@@ -29,11 +33,15 @@ class UsageReportingService:
     SETTINGS_KEY = "usage_reporting"
     DEFAULT_ENDPOINT = "https://trace.danielstephenson.dev"
     DEFAULT_KEY = "McIMZNatgE3SlbwlW_pd629oWKQ2F3zwUeOCHO4BLA0"
+    DETAILS_URL = "https://github.com/Stephenson-Software/trace#usage-reporting"
     NOTICE = (
-        "Usage reporting is on: apex sends a startup event (program name and version only) "
-        "to trace.danielstephenson.dev. Turn it off with \"usage_reporting\": {\"enabled\": false} "
-        "in settings.json."
+        "Usage reporting is on: apex sends its name and version at startup and a "
+        "simulation-started event to https://trace.danielstephenson.dev - nothing about you, "
+        "your machine or the simulation. Turn it off with \"usage_reporting\": {\"enabled\": false} "
+        "in settings.json, or for every trace-reporting program with the environment variable "
+        "TRACE_USAGE_REPORTING=off. Details: " + DETAILS_URL
     )
+    NOTICE_OFF_BY_ENVIRONMENT = "Usage reporting is off (environment). Details: " + DETAILS_URL
 
     def __init__(self, settingsFile=SETTINGS_FILE, versionFile=VERSION_FILE):
         self.settingsFile = settingsFile
@@ -43,17 +51,25 @@ class UsageReportingService:
         self.client = TraceClient.disabled()
         try:
             settings = self.__loadSettings()
-            if self.SETTINGS_KEY not in settings:
-                print(self.NOTICE)
+            firstRun = self.SETTINGS_KEY not in settings
+            if firstRun:
                 settings[self.SETTINGS_KEY] = self.__defaultBlock()
                 self.__saveSettings(settings)
             block = settings.get(self.SETTINGS_KEY) or {}
+            # Always built through the client, even when settings say off:
+            # the client checks TRACE_USAGE_REPORTING / DO_NOT_TRACK first and
+            # records why it is off in disabled_reason.
             self.client = TraceClient(
                 str(block.get("endpoint") or self.DEFAULT_ENDPOINT),
                 self.APPLICATION,
                 key=str(block.get("key") or ""),
                 enabled=bool(block.get("enabled", True)),
             )
+            if firstRun:
+                if self.client.disabled_reason == REASON_ENVIRONMENT:
+                    print(self.NOTICE_OFF_BY_ENVIRONMENT)
+                else:
+                    print(self.NOTICE)
         except Exception:
             self.client = TraceClient.disabled()
         atexit.register(self.close)

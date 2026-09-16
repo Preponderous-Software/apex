@@ -1,4 +1,5 @@
 import json
+import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -48,6 +49,10 @@ def stub():
 
 @pytest.fixture
 def workdir(tmp_path, monkeypatch):
+    # The machine running the tests may itself have opted out of usage
+    # reporting; every test starts from a clean environment.
+    monkeypatch.delenv("TRACE_USAGE_REPORTING", raising=False)
+    monkeypatch.delenv("DO_NOT_TRACK", raising=False)
     monkeypatch.chdir(tmp_path)
     (tmp_path / "version.txt").write_text("9.9.9-TEST")
     return tmp_path
@@ -66,7 +71,10 @@ def test_firstRunPrintsNoticeAndWritesSettingsBlock(workdir, capsys):
     service.close()
 
     # assert
-    assert capsys.readouterr().out.count(UsageReportingService.NOTICE) == 1
+    out = capsys.readouterr().out
+    assert out.count(UsageReportingService.NOTICE) == 1
+    assert "https://github.com/Stephenson-Software/trace#usage-reporting" in out
+    assert "TRACE_USAGE_REPORTING=off" in out
     settings = json.loads((workdir / "settings.json").read_text())
     assert settings["usage_reporting"]["enabled"] is True
     assert settings["usage_reporting"]["endpoint"] == UsageReportingService.DEFAULT_ENDPOINT
@@ -184,3 +192,52 @@ def test_brokenSettingsFileLeavesReportingDisabled(workdir, capsys):
     # assert
     assert service.client.enabled is False
     assert UsageReportingService.NOTICE not in capsys.readouterr().out
+
+
+def test_doNotTrackEnvironmentVariableWinsOverEnabledSettings(workdir, stub, monkeypatch):
+    # prepare
+    writeSettings(workdir, {"enabled": True, "endpoint": stub.endpoint, "key": "test-key"})
+    monkeypatch.setenv("DO_NOT_TRACK", "1")
+    service = UsageReportingService()
+
+    # execute
+    service.reportStartup()
+    service.reportSimulationStarted()
+    service.close()
+
+    # assert
+    assert service.client.enabled is False
+    assert service.client.disabled_reason == "environment"
+    assert stub.requests == []
+
+
+def test_traceUsageReportingOffEnvironmentVariableWinsOverEnabledSettings(workdir, stub, monkeypatch):
+    # prepare
+    writeSettings(workdir, {"enabled": True, "endpoint": stub.endpoint, "key": "test-key"})
+    monkeypatch.setenv("TRACE_USAGE_REPORTING", "off")
+    service = UsageReportingService()
+
+    # execute
+    service.reportStartup()
+    service.close()
+
+    # assert
+    assert service.client.enabled is False
+    assert service.client.disabled_reason == "environment"
+    assert stub.requests == []
+
+
+def test_firstRunUnderEnvironmentOptOutSaysReportingIsOff(workdir, capsys, monkeypatch):
+    # prepare
+    monkeypatch.setenv("TRACE_USAGE_REPORTING", "off")
+
+    # execute
+    service = UsageReportingService()
+    service.close()
+
+    # assert
+    out = capsys.readouterr().out
+    assert UsageReportingService.NOTICE not in out
+    assert out.count(UsageReportingService.NOTICE_OFF_BY_ENVIRONMENT) == 1
+    settings = json.loads((workdir / "settings.json").read_text())
+    assert settings["usage_reporting"]["enabled"] is True, "the environment never rewrites the settings file"
