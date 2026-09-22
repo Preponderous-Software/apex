@@ -33,6 +33,9 @@ def countRabbits(grid):
         count += len([e for e in location.getEntities().values() if isinstance(e, Rabbit)])
     return count
 
+def getChild(location, parent, mate):
+    return [e for e in location.getEntities().values() if isinstance(e, Rabbit) and e not in (parent, mate)]
+
 # mate selection tests -------------------------------------------------------
 @patch("actionhandler.actionHandler.random")
 @patch("actionhandler.reproduceActionHandler.random")
@@ -181,9 +184,6 @@ def test_initiateReproduceAction_staysSilentWhenMuted(mock_random, mock_base_ran
     assert handler.childCount == 1
 
 # invalid target tests -------------------------------------------------------
-def getChild(location, parent, mate):
-    return [e for e in location.getEntities().values() if isinstance(e, Rabbit) and e not in (parent, mate)]
-
 @patch("actionhandler.actionHandler.random")
 @patch("actionhandler.reproduceActionHandler.random")
 def test_initiateReproduceAction_placesTheChildWithItsParentsAtABorder(mock_random, mock_base_random):

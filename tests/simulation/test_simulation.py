@@ -22,6 +22,16 @@ def getTestSimulation():
     gameDisplay.get_size.return_value = (1080, 720)
     return simulation.Simulation(name, config, gameDisplay)
 
+def getTestSimulationWithLivingEntities(*entities):
+    testSim = getTestSimulation()
+    for entity in entities:
+        testSim.entities[entity.getID()] = entity
+    testSim.livingEntityIds = [entity.getID() for entity in entities]
+    testSim.removeEntityFromLocation = MagicMock()
+    testSim.setSoundService(MagicMock())
+    testSim.getConfig().muted = True
+    return testSim
+
 # constructor tests ----------------------------------------------------------
 def test_initialization():
     # prepare
@@ -744,16 +754,6 @@ def test_initiateEntityActions_EnergyNeedsMet_ExcreteAndReproduce():
     testSim.getEatActionHandler().initiateEatAction.assert_not_called()
     testSim.getExcreteActionHandler().initiateExcreteAction.assert_called_once_with(chicken, testSim.addEntityToTrackedEntities, testSim.numTicks)
     testSim.getReproduceActionHandler().initiateReproduceAction.assert_called_once_with(chicken, testSim.addEntityToTrackedEntities)
-
-def getTestSimulationWithLivingEntities(*entities):
-    testSim = getTestSimulation()
-    for entity in entities:
-        testSim.entities[entity.getID()] = entity
-    testSim.livingEntityIds = [entity.getID() for entity in entities]
-    testSim.removeEntityFromLocation = MagicMock()
-    testSim.setSoundService(MagicMock())
-    testSim.getConfig().muted = True
-    return testSim
 
 def test_initiateEntityActions_doesNotSkipTheEntityAfterAPredatorThatAteEarlierPrey():
     # prepare: the prey comes first in the list, so when the predator eats it the removal
