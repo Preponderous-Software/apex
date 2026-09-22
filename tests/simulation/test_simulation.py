@@ -22,6 +22,16 @@ def getTestSimulation():
     gameDisplay.get_size.return_value = (1080, 720)
     return simulation.Simulation(name, config, gameDisplay)
 
+def getTestSimulationWithLivingEntities(*entities):
+    testSim = getTestSimulation()
+    for entity in entities:
+        testSim.entities[entity.getID()] = entity
+    testSim.livingEntityIds = [entity.getID() for entity in entities]
+    testSim.removeEntityFromLocation = MagicMock()
+    testSim.setSoundService(MagicMock())
+    testSim.getConfig().muted = True
+    return testSim
+
 # constructor tests ----------------------------------------------------------
 def test_initialization():
     # prepare
@@ -430,7 +440,7 @@ def test_performExcrementCheck_StateChange():
     excrement = Excrement(1)
     excrement.getLocationID = MagicMock()
     excrement.getLocationID.return_value = 1
-    testSim.shouldExcrementTurnIntoGrass = MagicMock
+    testSim.shouldExcrementTurnIntoGrass = MagicMock()
     testSim.shouldExcrementTurnIntoGrass.return_value = True
     testSim.removeEntity = MagicMock()
     testSim.addEntityToTrackedEntities = MagicMock()
@@ -456,6 +466,29 @@ def test_growGrass():
     
     # assert
     testSim.performExcrementCheck.assert_called_once_with(excrement)
+
+def test_growGrass_doesNotSkipTheExcrementAfterAConvertedOne():
+    # prepare: two tracked excrements, only the first of which is ready to turn into grass.
+    # Its conversion removes it from the excrement registry mid-loop (regression test for
+    # issue #114; the skipped-excrement symptom is issue #69).
+    testSim = getTestSimulation()
+    first = Excrement(1)
+    second = Excrement(1)
+    for excrement in (first, second):
+        excrement.getLocationID = MagicMock(return_value=1)
+        testSim.entities[excrement.getID()] = excrement
+    testSim.setExcrementIds([first.getID(), second.getID()])
+    testSim.shouldExcrementTurnIntoGrass = MagicMock(side_effect=lambda excrement: excrement is first)
+    testSim.removeEntityFromLocation = MagicMock()
+    testSim.environment.getGrid().getLocation = MagicMock(return_value=MagicMock())
+
+    # execute
+    testSim.growGrass()
+
+    # assert: the second excrement was checked in the same tick as the first was converted
+    assert testSim.shouldExcrementTurnIntoGrass.call_args_list == [call(first), call(second)]
+    assert first.getID() not in testSim.getExcrementIds()
+    assert second.getID() in testSim.getExcrementIds()
 
 def test_growBerries():
     # prepare
@@ -722,6 +755,51 @@ def test_initiateEntityActions_EnergyNeedsMet_ExcreteAndReproduce():
     testSim.getExcreteActionHandler().initiateExcreteAction.assert_called_once_with(chicken, testSim.addEntityToTrackedEntities, testSim.numTicks)
     testSim.getReproduceActionHandler().initiateReproduceAction.assert_called_once_with(chicken, testSim.addEntityToTrackedEntities)
 
+def test_initiateEntityActions_doesNotSkipTheEntityAfterAPredatorThatAteEarlierPrey():
+    # prepare: the prey comes first in the list, so when the predator eats it the removal
+    # shifts every later id down by one (regression test for issue #114).
+    prey = Chicken("test prey")
+    predator = Chicken("test predator")
+    bystander = Chicken("test bystander")
+    testSim = getTestSimulationWithLivingEntities(prey, predator, bystander)
+    testSim.setMoveActionHandler(MagicMock())
+    testSim.setEatActionHandler(MagicMock())
+    for entity in (prey, predator, bystander):
+        entity.needsEnergy = MagicMock(return_value=True)
+    def eat(entity, callbackFunction):
+        if entity is predator:
+            callbackFunction(prey)
+    testSim.getEatActionHandler().initiateEatAction = MagicMock(side_effect=eat)
+
+    # execute
+    testSim.initiateEntityActions()
+
+    # assert: every entity that was alive at the start of the tick got its turn
+    assert testSim.getMoveActionHandler().initiateMoveAction.call_args_list == [call(prey), call(predator), call(bystander)]
+    assert testSim.livingEntityIds == [predator.getID(), bystander.getID()]
+
+def test_initiateEntityActions_givesNoTurnToAnEntityEatenEarlierInTheSameTick():
+    # prepare: the predator comes first, so the prey is already gone by the time the loop
+    # reaches its id.
+    predator = Chicken("test predator")
+    prey = Chicken("test prey")
+    testSim = getTestSimulationWithLivingEntities(predator, prey)
+    testSim.setMoveActionHandler(MagicMock())
+    testSim.setEatActionHandler(MagicMock())
+    for entity in (predator, prey):
+        entity.needsEnergy = MagicMock(return_value=True)
+    def eat(entity, callbackFunction):
+        if entity is predator:
+            callbackFunction(prey)
+    testSim.getEatActionHandler().initiateEatAction = MagicMock(side_effect=eat)
+
+    # execute
+    testSim.initiateEntityActions()
+
+    # assert
+    assert testSim.getMoveActionHandler().initiateMoveAction.call_args_list == [call(predator)]
+    assert testSim.livingEntityIds == [predator.getID()]
+
 def test_decreaseEnergyForLivingEntities():
     # prepare
     testSim = getTestSimulation()
@@ -755,6 +833,22 @@ def test_decreaseEnergyForLivingEntities_OutOfEnergy():
     # assert
     chicken.removeEnergy.assert_called_once_with(1)
     testSim.removeEntity.assert_called_once_with(chicken)
+
+def test_decreaseEnergyForLivingEntities_doesNotSkipTheEntityAfterAStarvedOne():
+    # prepare: the first chicken starves this tick and is removed from livingEntityIds
+    # mid-loop (regression test for issue #114).
+    starving = Chicken("test starving chicken")
+    starving.energy = 1
+    survivor = Chicken("test survivor")
+    survivorEnergyBefore = survivor.getEnergy()
+    testSim = getTestSimulationWithLivingEntities(starving, survivor)
+
+    # execute
+    testSim.decreaseEnergyForLivingEntities()
+
+    # assert: the survivor still paid its upkeep in the tick its neighbor died
+    assert starving.getID() not in testSim.livingEntityIds
+    assert survivor.getEnergy() == survivorEnergyBefore - 1
 
 def test_shouldExcrementTurnIntoGrass_False():
     # prepare

@@ -43,8 +43,8 @@ class ReproduceActionHandler(ActionHandler):
         child = type(entity)(name)
         targetLocation = self.getRandomAdjacentLocation(grid, location)
         if targetLocation == -1 or self.isLocationImpassible(targetLocation):
+            # fall back to the parents' own location rather than discarding the child (#112)
             targetLocation = location
-            return
         self.environment.addEntityToLocation(child, targetLocation)
         callbackFunction(child)
         
