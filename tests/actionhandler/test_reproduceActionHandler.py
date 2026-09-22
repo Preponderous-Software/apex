@@ -181,9 +181,12 @@ def test_initiateReproduceAction_staysSilentWhenMuted(mock_random, mock_base_ran
     assert handler.childCount == 1
 
 # invalid target tests -------------------------------------------------------
+def getChild(location, parent, mate):
+    return [e for e in location.getEntities().values() if isinstance(e, Rabbit) and e not in (parent, mate)]
+
 @patch("actionhandler.actionHandler.random")
 @patch("actionhandler.reproduceActionHandler.random")
-def test_initiateReproduceAction_discardsTheChildAtABorder(mock_random, mock_base_random):
+def test_initiateReproduceAction_placesTheChildWithItsParentsAtABorder(mock_random, mock_base_random):
     # prepare: the parents sit on the top row, so the location above them is off-grid.
     environment = Environment("test", 3)
     grid = environment.getGrid()
@@ -198,21 +201,24 @@ def test_initiateReproduceAction_discardsTheChildAtABorder(mock_random, mock_bas
     # execute
     handler.initiateReproduceAction(parent, callback)
 
-    # assert: current behavior, tracked as issue #112 - both parents pay for a child that
-    # is never placed, and neither the callback nor the child counter sees it.
+    # assert: the child the parents paid for lands on their own tile and is registered like
+    # any other (regression test for issue #112).
     assert parent.getEnergy() == parentEnergyBefore - 3
-    assert countRabbits(grid) == 2
-    callback.assert_not_called()
-    assert handler.childCount == 0
+    assert countRabbits(grid) == 3
+    child = getChild(location, parent, mate)
+    assert len(child) == 1
+    callback.assert_called_once_with(child[0])
+    assert handler.childCount == 1
 
 @patch("actionhandler.actionHandler.random")
 @patch("actionhandler.reproduceActionHandler.random")
-def test_initiateReproduceAction_discardsTheChildWhenTheNeighborIsSolid(mock_random, mock_base_random):
+def test_initiateReproduceAction_placesTheChildWithItsParentsWhenTheNeighborIsSolid(mock_random, mock_base_random):
     # prepare
     environment = Environment("test", 3)
     grid = environment.getGrid()
     location = grid.getLocationByCoordinates(1, 1)
-    grid.getLocationByCoordinates(1, 0).addEntity(Water())  # solid
+    up = grid.getLocationByCoordinates(1, 0)
+    up.addEntity(Water())  # solid
     handler, soundService = getHandler(environment)
     parent, mate = getPair(location)
     mock_random.randrange.return_value = 3  # energy cost
@@ -222,7 +228,10 @@ def test_initiateReproduceAction_discardsTheChildWhenTheNeighborIsSolid(mock_ran
     # execute
     handler.initiateReproduceAction(parent, callback)
 
-    # assert: same discarded-child behavior as at a border (issue #112).
-    assert countRabbits(grid) == 2
-    callback.assert_not_called()
-    assert handler.childCount == 0
+    # assert: same fallback to the parents' tile as at a border (regression test for
+    # issue #112); the solid neighbor stays untouched.
+    assert countRabbits(grid) == 3
+    assert len(getChild(location, parent, mate)) == 1
+    assert [e for e in up.getEntities().values() if isinstance(e, Rabbit)] == []
+    callback.assert_called_once()
+    assert handler.childCount == 1

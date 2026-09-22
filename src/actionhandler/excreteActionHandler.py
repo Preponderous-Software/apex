@@ -21,10 +21,11 @@ class ExcreteActionHandler(ActionHandler):
         excretionLocation = self.getRandomAdjacentLocation(grid, location)
         excrement = Excrement(tick)
         if (excretionLocation == -1 or self.isLocationImpassible(excretionLocation)):
-            location.addEntity(excrement)
-        else:
-            excretionLocation.addEntity(excrement)
-            callbackFunction(excrement)
+            # fall back to the entity's own location
+            excretionLocation = location
+        excretionLocation.addEntity(excrement)
+        # register on both branches so the simulation tracks it and it can turn into grass (#69)
+        callbackFunction(excrement)
         
         # energy cost for action
         entity.removeEnergy(self.energyCost)

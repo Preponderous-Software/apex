@@ -252,7 +252,9 @@ class Simulation:
             self.addEntityToTrackedEntities(grass)
 
     def growGrass(self):
-        for excrementId in self.__excrementIds:
+        # iterate over a snapshot: performExcrementCheck removes converted excrement from
+        # __excrementIds, and removing from the live list would skip the next entry (#114)
+        for excrementId in list(self.__excrementIds):
             excrement = self.entities[excrementId]
             self.performExcrementCheck(excrement)
 
@@ -293,7 +295,12 @@ class Simulation:
         return count
 
     def initiateEntityActions(self):
-        for entityId in self.livingEntityIds:
+        # iterate over a snapshot: eating removes prey from livingEntityIds, and removing from
+        # the live list would skip the next entry (#114). An entity eaten earlier in the same
+        # tick is no longer tracked and gets no turn.
+        for entityId in list(self.livingEntityIds):
+            if entityId not in self.entities:
+                continue
             entity = self.entities[entityId]
             self.__moveActionHandler.initiateMoveAction(entity)
             if entity.needsEnergy():
@@ -305,7 +312,8 @@ class Simulation:
                     self.__reproduceActionHandler.initiateReproduceAction(entity, self.addEntityToTrackedEntities)
 
     def decreaseEnergyForLivingEntities(self):
-        for entityId in self.livingEntityIds:
+        # iterate over a snapshot: starvation removes from livingEntityIds mid-loop (#114)
+        for entityId in list(self.livingEntityIds):
             entity = self.entities[entityId]
             entity.removeEnergy(1)
             if entity.getEnergy() <= 0:

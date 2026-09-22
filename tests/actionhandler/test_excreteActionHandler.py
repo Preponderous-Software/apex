@@ -54,10 +54,11 @@ def test_initiateExcreteAction_fallsBackToTheEntitysOwnLocationAtABorder(mock_ra
     # execute
     handler.initiateExcreteAction(rabbit, callback, 7)
 
-    # assert: the excrement is placed but the callback never fires, so the simulation
-    # does not track it and it can never grow into grass (see issue #69).
-    assert len(getExcrement(location)) == 1
-    callback.assert_not_called()
+    # assert: the fallback excrement is registered too, so the simulation tracks it and it
+    # can grow into grass like any other (regression test for issue #69).
+    excrement = getExcrement(location)
+    assert len(excrement) == 1
+    callback.assert_called_once_with(excrement[0])
 
 @patch("actionhandler.actionHandler.random")
 def test_initiateExcreteAction_fallsBackToTheEntitysOwnLocationWhenTheNeighborIsSolid(mock_random):
@@ -72,10 +73,11 @@ def test_initiateExcreteAction_fallsBackToTheEntitysOwnLocationWhenTheNeighborIs
     # execute
     handler.initiateExcreteAction(rabbit, callback, 7)
 
-    # assert: same untracked fallback as at a border (see issue #69).
-    assert len(getExcrement(location)) == 1
+    # assert: same tracked fallback as at a border (regression test for issue #69).
+    excrement = getExcrement(location)
+    assert len(excrement) == 1
     assert getExcrement(up) == []
-    callback.assert_not_called()
+    callback.assert_called_once_with(excrement[0])
 
 @patch("actionhandler.actionHandler.random")
 def test_initiateExcreteAction_chargesTheActionCostOnBothBranches(mock_random):
