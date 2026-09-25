@@ -27,10 +27,13 @@ from entity.rock import Rock
 # @since July 26th, 2022
 class Simulation:
     # constructors ------------------------------------------------------------
-    def __init__(self, name, config, gameDisplay):
+    def __init__(self, name, config, gameDisplay, soundService=None):
         self.__config = config
         self.__gameDisplay = gameDisplay
-        self.__soundService = SoundService()
+        if soundService is None:
+            self.__soundService = SoundService()
+        else:
+            self.__soundService = soundService
         
         self.environment = Environment(name, self.getConfig().gridSize)
 
@@ -46,6 +49,10 @@ class Simulation:
         self.livingEntityIds = []
         self.running = True
         self.numTicks = 0
+        self.numEntitiesAtStart = 0
+        self.numLivingEntitiesAtStart = 0
+        
+        self.numDeaths = 0
 
         self.initializeLocationWidthAndHeight()
     
@@ -156,6 +163,8 @@ class Simulation:
         for entityId in self.entities:
             entity = self.entities[entityId]
             self.environment.addEntity(entity)
+        self.numEntitiesAtStart = len(self.entities)
+        self.numLivingEntitiesAtStart = len(self.livingEntityIds)
 
     def getNumberOfEntitiesOfType(self, entityType):
         count = 0
@@ -207,6 +216,15 @@ class Simulation:
     
     def getGridSize(self):
         return self.getConfig().gridSize
+    
+    def getNumDeaths(self):
+        return self.numDeaths
+    
+    def getNumEntitiesAtStart(self):
+        return self.numEntitiesAtStart
+    
+    def getNumLivingEntitiesAtStart(self):
+        return self.numLivingEntitiesAtStart
 
     # private methods --------------------------------------------------------
     def removeEntityFromLocation(self, entity: Entity):
@@ -235,6 +253,7 @@ class Simulation:
             self.printDeathInfo(entity, oldestLivingEntity)
             if not self.getConfig().muted:
                 self.__soundService.playDeathSoundEffect()
+            self.numDeaths += 1
         if type(entity) is Excrement:
             self.__excrementIds.remove(entity.getID())
         if type(entity) is BerryBush:

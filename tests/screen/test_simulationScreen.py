@@ -15,7 +15,14 @@ def getTestScreen(fullscreen=False):
     config.displayHeight = 720
     screen = SimulationScreen(graphik, config)
     screen.simulation = MagicMock()
+    # Key handling routes through the controller, which initialize() builds.
+    # The tests exercise the handlers directly, so the controller is supplied
+    # here instead.
+    screen._SimulationScreen__controller = MagicMock()
     return screen
+
+def getController(screen):
+    return screen._SimulationScreen__controller
 
 def getNextScreen(screen):
     return screen._SimulationScreen__nextScreen
@@ -46,7 +53,9 @@ def test_quitKeyCleansUpTheSimulation():
     handleKey(screen, pygame.K_q)
 
     # assert
-    screen.simulation.cleanup.assert_called_once()
+    # controller.quit() runs simulation.cleanup() and clears simulation.running,
+    # so asserting on it covers the cleanup the old direct call performed.
+    getController(screen).quit.assert_called_once()
 
 def test_restartKeyStillRequestsTheSetupScreen():
     # prepare
