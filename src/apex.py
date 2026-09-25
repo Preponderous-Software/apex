@@ -11,6 +11,8 @@ from simulation.config import Config
 # @author Daniel McCoy Stephenson
 # @since July 31st, 2022
 class Apex:
+    ICON_PATH = 'src/media/icon/icon.PNG'
+
     # constructors -----------------------------------------------------------
     def __init__(self):
         pygame.init()
@@ -18,7 +20,7 @@ class Apex:
         self.usageReporting.reportStartup()
         self.config = Config()
         self.__initializeGameDisplay()
-        pygame.display.set_icon(pygame.image.load('src/media/icon/icon.PNG'))
+        self.__setIcon(self.ICON_PATH)
         self.graphik = Graphik(self.gameDisplay)
         self.debug = False
         self.mainMenuScreen = MainMenuScreen(self.graphik)
@@ -57,11 +59,19 @@ class Apex:
         else:
             self.gameDisplay = pygame.display.set_mode((self.config.displayWidth, self.config.displayHeight), pygame.RESIZABLE)
 
+    # Sets the window icon, skipping it instead of crashing when the file is missing or unreadable.
+    def __setIcon(self, path):
+        try:
+            pygame.display.set_icon(pygame.image.load(path))
+        except (pygame.error, FileNotFoundError) as e:
+            print("Warning: could not load window icon '" + path + "', continuing without it: " + str(e))
+
     # Shuts down the application.
     def __quitApplication(self):
         self.usageReporting.close()
         pygame.quit()
         quit()
 
-apex = Apex()
-apex.run()
+if __name__ == "__main__":
+    apex = Apex()
+    apex.run()
