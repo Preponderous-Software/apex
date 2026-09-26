@@ -7,6 +7,7 @@ from screen.setupScreen import SetupScreen
 from screen.simulationScreen import SimulationScreen
 from service.usageReportingService import UsageReportingService
 from simulation.config import Config
+from ui.gameDisplayFactory import GameDisplayFactory
 
 # @author Daniel McCoy Stephenson
 # @since July 31st, 2022
@@ -19,9 +20,9 @@ class Apex:
         self.usageReporting = UsageReportingService()
         self.usageReporting.reportStartup()
         self.config = Config()
-        self.__initializeGameDisplay()
+        gameDisplay = GameDisplayFactory().createGameDisplay(self.config)
         self.__setIcon(self.ICON_PATH)
-        self.graphik = Graphik(self.gameDisplay)
+        self.graphik = Graphik(gameDisplay)
         self.debug = False
         self.mainMenuScreen = MainMenuScreen(self.graphik)
         self.simulationScreen = SimulationScreen(self.graphik, self.config)
@@ -53,12 +54,6 @@ class Apex:
                 self.__quitApplication()
 
     # private methods --------------------------------------------------------
-    def __initializeGameDisplay(self):
-        if self.config.fullscreen:
-            self.gameDisplay = pygame.display.set_mode((self.config.displayWidth, self.config.displayHeight), pygame.FULLSCREEN)
-        else:
-            self.gameDisplay = pygame.display.set_mode((self.config.displayWidth, self.config.displayHeight), pygame.RESIZABLE)
-
     # Sets the window icon, skipping it instead of crashing when the file is missing or unreadable.
     def __setIcon(self, path):
         try:

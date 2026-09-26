@@ -14,6 +14,7 @@ from lib.graphiklib.graphik import Graphik
 from screen.screenType import ScreenType
 from simulation.config import Config
 from simulation.simulation import Simulation
+from ui.gameDisplayFactory import GameDisplayFactory
 from ui.textAlertDrawTool import TextAlertDrawTool
 from ui.textAlertFactory import TextAlertFactory
 
@@ -30,6 +31,7 @@ class SimulationScreen:
         self.__textAlerts = []
         self.__textAlertFactory = TextAlertFactory()
         self.__textAlertDrawTool = TextAlertDrawTool()
+        self.__gameDisplayFactory = GameDisplayFactory()
         self.__selectedEntity = None
     
     # public methods ---------------------------------------------------------
@@ -109,13 +111,9 @@ class SimulationScreen:
     # private methods --------------------------------------------------------
     # Re-creates the game display so that it matches the current fullscreen setting, and points
     # everything that holds a reference to the old surface at the new one. Called when F11 toggles
-    # Config.fullscreen. The non-fullscreen mode is recreated as RESIZABLE so that leaving
-    # fullscreen does not leave the user with a fixed-size window.
+    # Config.fullscreen.
     def __initializeGameDisplay(self):
-        if self.__config.fullscreen:
-            gameDisplay = pygame.display.set_mode((self.__config.displayWidth, self.__config.displayHeight), pygame.FULLSCREEN)
-        else:
-            gameDisplay = pygame.display.set_mode((self.__config.displayWidth, self.__config.displayHeight), pygame.RESIZABLE)
+        gameDisplay = self.__gameDisplayFactory.createGameDisplay(self.__config)
         self.__graphik.gameDisplay = gameDisplay
         self.simulation.setGameDisplay(gameDisplay)
         self.simulation.initializeLocationWidthAndHeight()
