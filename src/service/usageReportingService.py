@@ -10,9 +10,10 @@ from lib.tracelib.trace_client import REASON_ENVIRONMENT, TraceClient
 class UsageReportingService:
     """Reports that Apex was used to the trace service, and nothing else.
 
-    What is sent: a ``startup`` event when the game starts (program name and
-    version only) and a ``simulation-started`` event when a simulation begins.
-    Nothing about the machine, the user, or the simulation's contents.
+    What is sent: a ``startup`` event when the game starts and a
+    ``simulation-started`` event when a simulation begins, each carrying the
+    program name and version only. Nothing about the machine, the user, or
+    the simulation's contents.
 
     Reporting is on by default and switched off by setting
     ``usage_reporting.enabled`` to ``false`` in ``settings.json`` next to
@@ -30,6 +31,9 @@ class UsageReportingService:
     APPLICATION = "apex"
     SETTINGS_FILE = "settings.json"
     VERSION_FILE = "version.txt"
+    #: Sent as the version when ``version.txt`` is missing or empty, so a
+    #: source checkout without one still starts (the client requires a version).
+    UNKNOWN_VERSION = "unknown"
     SETTINGS_KEY = "usage_reporting"
     DEFAULT_ENDPOINT = "https://trace.danielstephenson.dev"
     DEFAULT_KEY = "McIMZNatgE3SlbwlW_pd629oWKQ2F3zwUeOCHO4BLA0"
@@ -62,6 +66,7 @@ class UsageReportingService:
             self.client = TraceClient(
                 str(block.get("endpoint") or self.DEFAULT_ENDPOINT),
                 self.APPLICATION,
+                self.__readVersion() or self.UNKNOWN_VERSION,
                 key=str(block.get("key") or ""),
                 enabled=bool(block.get("enabled", True)),
             )
@@ -76,9 +81,7 @@ class UsageReportingService:
 
     # public methods ---------------------------------------------------------
     def reportStartup(self):
-        version = self.__readVersion()
-        tags = {"version": version} if version else None
-        self.client.report("startup", tags=tags)
+        self.client.report("startup")
 
     def reportSimulationStarted(self):
         self.client.report("simulation-started")
