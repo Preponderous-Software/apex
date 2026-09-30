@@ -124,7 +124,7 @@ def test_startupEventCarriesApplicationAndVersion(workdir, stub):
     assert request["body"] == {"application": "apex", "name": "startup", "tags": {"version": "9.9.9-TEST"}}
 
 
-def test_startupEventOmitsVersionWhenVersionFileIsMissing(workdir, stub):
+def test_startupEventSendsUnknownVersionWhenVersionFileIsMissing(workdir, stub):
     # prepare
     (workdir / "version.txt").unlink()
     writeSettings(workdir, {"enabled": True, "endpoint": stub.endpoint, "key": "test-key"})
@@ -136,7 +136,7 @@ def test_startupEventOmitsVersionWhenVersionFileIsMissing(workdir, stub):
     service.close()
 
     # assert
-    assert stub.requests[0]["body"] == {"application": "apex", "name": "startup"}
+    assert stub.requests[0]["body"] == {"application": "apex", "name": "startup", "tags": {"version": "unknown"}}
 
 
 def test_simulationStartedEventIsSent(workdir, stub):
@@ -150,7 +150,8 @@ def test_simulationStartedEventIsSent(workdir, stub):
     service.close()
 
     # assert
-    assert stub.requests[0]["body"] == {"application": "apex", "name": "simulation-started"}
+    assert stub.requests[0]["body"] == {
+        "application": "apex", "name": "simulation-started", "tags": {"version": "9.9.9-TEST"}}
 
 
 # opt-out tests --------------------------------------------------------------
