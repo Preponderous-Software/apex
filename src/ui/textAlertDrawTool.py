@@ -10,10 +10,8 @@ class TextAlertDrawTool():
 
     def drawTextAlert(self, textAlert, graphik: Graphik):
         numLines = len(textAlert.text)
-        
-        # prepare background
-        backgroundHeight = self.prepareBackground(textAlert, graphik, numLines)
-        
+        backgroundHeight = 20*numLines + 20
+
         # ensure text will not be drawn outside of the screen
         if textAlert.y + backgroundHeight > graphik.gameDisplay.get_height():
             textAlert.y = graphik.gameDisplay.get_height() - 20*numLines - 20
@@ -23,7 +21,10 @@ class TextAlertDrawTool():
             textAlert.y = 0
         if textAlert.x < textAlert.size * 6:
             textAlert.x = textAlert.size * 6
-        
+
+        # prepare background at the clamped position so it stays behind the text
+        self.prepareBackground(textAlert, graphik, numLines)
+
         # draw text
         for i in range(0, len(textAlert.text)):
             graphik.drawText(textAlert.text[i], textAlert.x, textAlert.y + 20*i, textAlert.size, textAlert.color)

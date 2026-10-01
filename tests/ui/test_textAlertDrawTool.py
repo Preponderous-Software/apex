@@ -116,7 +116,7 @@ def test_drawTextAlert_keepsTheBackgroundOnScreenAtTheLeftEdge():
     # assert
     assert alert.x == 20 * 6
 
-def test_drawTextAlert_drawsTheBackgroundAtThePreClampPosition():
+def test_drawTextAlert_drawsTheBackgroundAtTheClampedPositionOnTheRightEdge():
     # prepare
     drawTool = TextAlertDrawTool()
     graphik = getTestGraphik(width=1280)
@@ -126,7 +126,32 @@ def test_drawTextAlert_drawsTheBackgroundAtThePreClampPosition():
     drawTool.drawTextAlert(alert, graphik)
 
     # assert
-    # the background is drawn before the position is clamped, so it keeps the
-    # original x while the text moves to the clamped x
-    graphik.drawRectangle.assert_called_once_with(1200 - 20 * 6, 300 - 20, 250, 40, (255, 255, 255))
+    graphik.drawRectangle.assert_called_once_with(1280 - 250 - 20 * 6, 300 - 20, 250, 40, (255, 255, 255))
     graphik.drawText.assert_called_once_with("a", 1280 - 250, 300, 20, (0, 0, 0))
+
+def test_drawTextAlert_drawsTheBackgroundAtTheClampedPositionOnTheBottomEdge():
+    # prepare
+    drawTool = TextAlertDrawTool()
+    graphik = getTestGraphik(height=720)
+    alert = getTestAlert(200, 700, ["a", "b"], size=20)
+
+    # execute
+    drawTool.drawTextAlert(alert, graphik)
+
+    # assert
+    clampedY = 720 - 20 * 2 - 20
+    graphik.drawRectangle.assert_called_once_with(200 - 20 * 6, clampedY - 20, 250, 60, (255, 255, 255))
+    assert graphik.drawText.call_args_list[0] == call("a", 200, clampedY, 20, (0, 0, 0))
+
+def test_drawTextAlert_drawsTheBackgroundBeforeTheText():
+    # prepare
+    drawTool = TextAlertDrawTool()
+    graphik = getTestGraphik()
+    alert = getTestAlert(200, 300, ["a"])
+
+    # execute
+    drawTool.drawTextAlert(alert, graphik)
+
+    # assert
+    drawCalls = [name for name, _, _ in graphik.method_calls if name in ("drawRectangle", "drawText")]
+    assert drawCalls == ["drawRectangle", "drawText"]
