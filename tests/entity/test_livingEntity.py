@@ -1,5 +1,3 @@
-import random
-
 from entity.berries import Berries
 from entity.berryBush import BerryBush
 from entity.chicken import Chicken
@@ -100,7 +98,7 @@ def test_canEat_matchesTheExactTypeOnly():
     assert entity.canEat(TallGrass()) == False
 
 def test_getSex_isMaleOrFemale():
-    random.seed(0)
+    # 50 draws: both sexes appear unless random.choice is broken (odds 2 ** -49 otherwise)
     sexes = set()
     for _ in range(50):
         sexes.add(LivingEntity("test entity", (0, 0, 0), False, 30, [Grass]).getSex())
