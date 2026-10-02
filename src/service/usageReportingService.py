@@ -1,6 +1,7 @@
 import atexit
 import json
 import os
+import sys
 
 from lib.tracelib.trace_client import REASON_ENVIRONMENT, TraceClient
 
@@ -53,6 +54,12 @@ class UsageReportingService:
         # Nothing below can raise past this point: a broken settings file or
         # a bad endpoint leaves the client disabled instead of stopping the game.
         self.client = TraceClient.disabled()
+        atexit.register(self.close)
+        if sys.platform == "emscripten":
+            # The browser (pygbag) build never reports: the client sends from a thread of
+            # its own and a pygbag build has no threads, and there is no settings.json there
+            # for a player to turn it off with, so nothing is written or printed either.
+            return
         try:
             settings = self.__loadSettings()
             firstRun = self.SETTINGS_KEY not in settings
@@ -77,7 +84,6 @@ class UsageReportingService:
                     print(self.NOTICE)
         except Exception:
             self.client = TraceClient.disabled()
-        atexit.register(self.close)
 
     # public methods ---------------------------------------------------------
     def reportStartup(self):

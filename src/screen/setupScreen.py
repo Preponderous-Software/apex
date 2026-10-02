@@ -1,3 +1,4 @@
+import asyncio
 import os
 import pygame
 
@@ -158,18 +159,23 @@ class SetupScreen:
                     (255, 255, 255),
                 )
 
-    def run(self):
+    # Async so it can run in a browser (pygbag): it yields to the event loop once a frame.
+    async def run(self):
         while not self.changeScreen:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.nextScreen = ScreenType.NONE
                     self.changeScreen = True
                     break
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    self.graphik.registerClick(event.pos)
 
             self.graphik.getGameDisplay().fill((0, 0, 0))
             self.drawText()
             self.drawMenuButtons()
+            self.graphik.clearClick()
             self.drawVersion()
             pygame.display.update()
+            await asyncio.sleep(0)
         self.changeScreen = False
         return self.nextScreen

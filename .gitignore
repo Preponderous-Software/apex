@@ -2,3 +2,8 @@
 .coverage
 coverage.xml
 settings.json
+
+# pygbag browser build (see .github/workflows/browser.yml): its output, and the
+# version file CI writes into src/ for the build to display
+src/build/
+src/version.txt
