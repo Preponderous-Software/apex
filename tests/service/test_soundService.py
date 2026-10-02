@@ -81,3 +81,24 @@ def test_playingALoadedSoundEffectSetsVolumeAndPlaysIt(monkeypatch):
 
     service.deathSoundEffect.set_volume.assert_called_once()
     stub.mixer.Sound.play.assert_called_once_with(service.deathSoundEffect)
+
+# browser build tests --------------------------------------------------------
+def test_desktopUsesTheWavFilesAndTheBrowserBuildTheOggCopies():
+    assert soundService.soundPath("pop", "linux").endswith("pop.wav")
+    assert soundService.soundPath("pain", "win32").endswith("pain.wav")
+    assert soundService.soundPath("pop", "emscripten").endswith("pop.ogg")
+    assert soundService.soundPath("pain", "emscripten").endswith("pain.ogg")
+
+@pytest.mark.parametrize("name", ["pop", "pain"])
+def test_everySoundShipsInBothFormatsAndBothDecode(name):
+    # the browser build plays the .ogg copy; both have to be real, decodable audio
+    try:
+        pygame.mixer.init()
+    except pygame.error as e:
+        pytest.skip("no audio device to decode with: " + str(e))
+    try:
+        for platform in ("linux", "emscripten"):
+            sound = pygame.mixer.Sound(soundService.soundPath(name, platform))
+            assert sound.get_length() > 0.5
+    finally:
+        pygame.mixer.quit()

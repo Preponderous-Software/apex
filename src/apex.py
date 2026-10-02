@@ -1,5 +1,8 @@
+import asyncio
+import os
+import sys
+
 import pygame
-from lib.graphiklib.graphik import Graphik
 from screen.mainMenuScreen import MainMenuScreen
 from screen.resultsScreen import ResultsScreen
 from screen.screenType import ScreenType
@@ -7,12 +10,16 @@ from screen.setupScreen import SetupScreen
 from screen.simulationScreen import SimulationScreen
 from service.usageReportingService import UsageReportingService
 from simulation.config import Config
+from ui.clickableGraphik import ClickableGraphik
 from ui.gameDisplayFactory import GameDisplayFactory
 
 # @author Daniel McCoy Stephenson
 # @since July 31st, 2022
 class Apex:
-    ICON_PATH = 'src/media/icon/icon.PNG'
+    # found next to this file rather than through the working directory, so the
+    # icon loads from the repository root (run.sh), from src/, and in the browser
+    # build, whose root is src/ itself
+    ICON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'media', 'icon', 'icon.PNG')
 
     # constructors -----------------------------------------------------------
     def __init__(self):
@@ -22,7 +29,7 @@ class Apex:
         self.config = Config()
         gameDisplay = GameDisplayFactory().createGameDisplay(self.config)
         self.__setIcon(self.ICON_PATH)
-        self.graphik = Graphik(gameDisplay)
+        self.graphik = ClickableGraphik(gameDisplay)
         self.debug = False
         self.mainMenuScreen = MainMenuScreen(self.graphik)
         self.simulationScreen = SimulationScreen(self.graphik, self.config)
@@ -31,10 +38,11 @@ class Apex:
         self.currentScreen = self.mainMenuScreen
 
     # public methods ---------------------------------------------------------
-    # Runs the application.
-    def run(self):
+    # Runs the application. Async, as is each screen's loop, so the same code runs as a pygbag
+    # build in a browser, which needs control back every frame (see src/main.py).
+    async def run(self):
         while True:
-            result = self.currentScreen.run()
+            result = await self.currentScreen.run()
             if result == ScreenType.MAIN_MENU_SCREEN:
                 self.currentScreen = self.mainMenuScreen
             elif result == ScreenType.SETUP_SCREEN:
@@ -69,4 +77,4 @@ class Apex:
 
 if __name__ == "__main__":
     apex = Apex()
-    apex.run()
+    asyncio.run(apex.run())

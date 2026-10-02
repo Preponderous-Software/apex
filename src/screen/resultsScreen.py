@@ -1,3 +1,4 @@
+import asyncio
 import os
 import pygame
 
@@ -49,10 +50,10 @@ class ResultsScreen:
             "ticks: " + str(self.simulation.getNumTicks()), xpos, ypos, 32, (255, 255, 255)
         )
         
-        # display text "press any key to return to setup"
+        # display text "press any key or tap to return to setup"
         ypos = y - y / 10
         self.graphik.drawText(
-            "press any key to return to setup", xpos, ypos, 32, (255, 255, 255)
+            "press any key or tap to return to setup", xpos, ypos, 32, (255, 255, 255)
         )
 
     def drawVersion(self):
@@ -72,7 +73,8 @@ class ResultsScreen:
     def handleKeyDownEvent(self, key):
         self.switchToSetupScreen()
 
-    def run(self):
+    # Async so it can run in a browser (pygbag): it yields to the event loop once a frame.
+    async def run(self):
         while not self.changeScreen:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -81,10 +83,14 @@ class ResultsScreen:
                     break
                 elif event.type == pygame.KEYDOWN:
                     self.handleKeyDownEvent(event.key)
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    # a click, or a tap on a phone, which has no key to press
+                    self.switchToSetupScreen()
 
             self.graphik.getGameDisplay().fill((0, 0, 0))
             self.drawText()
             self.drawVersion()
             pygame.display.update()
+            await asyncio.sleep(0)
         self.changeScreen = False
         return self.nextScreen

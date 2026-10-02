@@ -1,4 +1,6 @@
+import asyncio
 import os
+import sys
 import pygame
 
 from lib.graphiklib.graphik import Graphik
@@ -50,6 +52,9 @@ class MainMenuScreen:
             "create new sim",
             self.switchToSetupScreen,
         )
+        if sys.platform == "emscripten":
+            # a browser tab has nothing to quit to: the button would only leave a dead canvas
+            return
         ypos = ypos + height + margin
         self.graphik.drawButton(
             xpos,
@@ -80,7 +85,8 @@ class MainMenuScreen:
     def handleKeyDownEvent(self, key):
         self.switchToSetupScreen()
 
-    def run(self):
+    # Async so it can run in a browser (pygbag): it yields to the event loop once a frame.
+    async def run(self):
         while not self.changeScreen:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -89,11 +95,15 @@ class MainMenuScreen:
                     break
                 elif event.type == pygame.KEYDOWN:
                     self.handleKeyDownEvent(event.key)
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    self.graphik.registerClick(event.pos)
 
             self.graphik.getGameDisplay().fill((0, 0, 0))
             self.drawText()
             self.drawMenuButtons()
+            self.graphik.clearClick()
             self.drawVersion()
             pygame.display.update()
+            await asyncio.sleep(0)
         self.changeScreen = False
         return self.nextScreen

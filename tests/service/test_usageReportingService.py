@@ -242,3 +242,22 @@ def test_firstRunUnderEnvironmentOptOutSaysReportingIsOff(workdir, capsys, monke
     assert out.count(UsageReportingService.NOTICE_OFF_BY_ENVIRONMENT) == 1
     settings = json.loads((workdir / "settings.json").read_text())
     assert settings["usage_reporting"]["enabled"] is True, "the environment never rewrites the settings file"
+
+
+# browser build tests --------------------------------------------------------
+def test_browserBuildNeverReportsWritesNothingAndStartsNoThread(workdir, stub, monkeypatch, capsys):
+    # prepare: settings that would report to the stub anywhere else
+    writeSettings(workdir, {"enabled": True, "endpoint": stub.endpoint, "key": "k"})
+    monkeypatch.setattr("service.usageReportingService.sys.platform", "emscripten")
+    threadsBefore = threading.active_count()
+
+    # execute
+    service = UsageReportingService()
+    service.reportStartup()
+    service.close()
+
+    # assert: a pygbag build has no threads, so the client must never start one
+    assert service.client.enabled is False
+    assert threading.active_count() == threadsBefore
+    assert not stub.arrived.wait(0.5)
+    assert capsys.readouterr().out == ""

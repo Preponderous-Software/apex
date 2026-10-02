@@ -1,5 +1,6 @@
+import asyncio
 import os
-import time
+import sys
 import pygame
 
 from entity.chicken import Chicken
@@ -35,8 +36,9 @@ class SimulationScreen:
         self.__selectedEntity = None
     
     # public methods ---------------------------------------------------------
-    # Invokes the simulation screen loop.
-    def run(self):
+    # Invokes the simulation screen loop. Async so it can run in a browser (pygbag): every wait
+    # in it is awaited rather than slept, so the page gets control back once a frame.
+    async def run(self):
         while not self.__changeScreen:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -75,7 +77,9 @@ class SimulationScreen:
             self.__drawVersion()
             pygame.display.update()
             if (self.__config.limitTickSpeed):
-                time.sleep((self.__config.maxTickSpeed - self.__config.tickSpeed)/self.__config.maxTickSpeed)
+                await asyncio.sleep((self.__config.maxTickSpeed - self.__config.tickSpeed)/self.__config.maxTickSpeed)
+            else:
+                await asyncio.sleep(0)
             
             if not self.__paused:
                 self.simulation.numTicks += 1
@@ -86,7 +90,7 @@ class SimulationScreen:
 
             if (self.__config.endSimulationUponAllLivingEntitiesDying):
                 if self.simulation.getNumLivingEntities() == 0:
-                    time.sleep(1)
+                    await asyncio.sleep(1)
                     self.simulation.cleanup()
                     if self.__config.randomizeGridSizeUponRestart:
                         self.__config.randomizeGridSize()
@@ -307,7 +311,11 @@ class SimulationScreen:
                 self.__debug = True
         if key == pygame.K_q:
             self.simulation.cleanup()
-            self.__nextScreen = ScreenType.NONE
+            # a browser tab has nothing to quit to, so there q ends the simulation instead
+            if sys.platform == "emscripten":
+                self.__nextScreen = ScreenType.RESULTS_SCREEN
+            else:
+                self.__nextScreen = ScreenType.NONE
             self.__changeScreen = True
         if key == pygame.K_r:
             self.simulation.cleanup()

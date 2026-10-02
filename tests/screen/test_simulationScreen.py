@@ -38,6 +38,17 @@ def test_quitKeyRequestsApplicationShutdown():
     assert getNextScreen(screen) == ScreenType.NONE
     assert getChangeScreen(screen) == True
 
+def test_quitKeyEndsTheSimulationInsteadInTheBrowser(monkeypatch):
+    # a browser tab has nothing to quit to: q shows the results instead of leaving a dead canvas
+    monkeypatch.setattr("screen.simulationScreen.sys.platform", "emscripten")
+    screen = getTestScreen()
+
+    handleKey(screen, pygame.K_q)
+
+    assert getNextScreen(screen) == ScreenType.RESULTS_SCREEN
+    assert getChangeScreen(screen) == True
+    screen.simulation.cleanup.assert_called_once()
+
 def test_quitKeyCleansUpTheSimulation():
     # prepare
     screen = getTestScreen()

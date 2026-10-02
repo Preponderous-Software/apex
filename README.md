@@ -3,6 +3,22 @@ This game allows you to manage a virtual environment containing entities that de
 
 <img src="pics/screenshot4.PNG" alt="screenshot" width="720"/>
 
+## Play in your browser
+Apex also runs in a web browser, phones included, with nothing to install:
+
+- https://apex.play.danielstephenson.dev
+- https://danielstephenson.dev/play (every browser game in one place)
+
+Click or tap the page once to start it, then tap "create new sim" and "start simulation", and
+watch. Tapping the results screen returns to setup. The keyboard controls below work there too,
+except that q ends the simulation (showing its results) instead of quitting, and there is no quit
+button, as closing the tab ends the game. Nothing is reported to trace from the browser.
+
+The browser build is made with [pygbag](https://github.com/pygame-web/pygbag) from `src/`, whose
+`main.py` is its entry point (`python -m pygbag --build src` builds it into `src/build/web`).
+`.github/workflows/browser.yml` builds it on every pull request and deploys it. The sounds ship as
+`.ogg` copies alongside the `.wav` files, because a browser build cannot play `.wav`.
+
 ## Types of Living Entities
 - Chicken
 - Pig
@@ -42,7 +58,7 @@ l | toggle tick speed limit
 [ | decrease tick speed (if enabled)
 f11 | toggle fullscreen mode
 r | restart
-q | quit
+q | quit (in the browser: end the simulation and show its results)
 
 At this time, the user can pause/unpause, toggle the tick speed limit, increase/decrease the tick speed, manually spawn living entities, restart the simulation, enter debug mode and quit the application.
 
