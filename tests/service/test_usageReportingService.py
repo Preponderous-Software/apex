@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from service.usageReportingService import UsageReportingService
+from service.usageReportingService import UsageReportingService, installIdFile
 
 
 # helper methods -------------------------------------------------------------
@@ -53,9 +53,18 @@ def workdir(tmp_path, monkeypatch):
     # reporting; every test starts from a clean environment.
     monkeypatch.delenv("TRACE_USAGE_REPORTING", raising=False)
     monkeypatch.delenv("DO_NOT_TRACK", raising=False)
+    monkeypatch.delenv("TRACE_INSTALL_ID", raising=False)
+    # The installation ID file goes under the user data dir; keep it in tmp_path.
+    for variable in ("HOME", "USERPROFILE", "APPDATA", "XDG_DATA_HOME"):
+        monkeypatch.setenv(variable, str(tmp_path / "home"))
     monkeypatch.chdir(tmp_path)
     (tmp_path / "version.txt").write_text("9.9.9-TEST")
     return tmp_path
+
+
+def readInstallId():
+    with open(installIdFile("apex")) as file:
+        return file.readline().strip()
 
 
 def writeSettings(workdir, block, extra=None):
@@ -121,7 +130,7 @@ def test_startupEventCarriesApplicationAndVersion(workdir, stub):
     request = stub.requests[0]
     assert request["path"] == "/api/metrics"
     assert request["authorization"] == "Bearer test-key"
-    assert request["body"] == {"application": "apex", "name": "startup", "tags": {"version": "9.9.9-TEST"}}
+    assert request["body"] == {"application": "apex", "name": "startup", "tags": {"version": "9.9.9-TEST", "install": readInstallId()}}
 
 
 def test_startupEventSendsUnknownVersionWhenVersionFileIsMissing(workdir, stub):
@@ -136,7 +145,7 @@ def test_startupEventSendsUnknownVersionWhenVersionFileIsMissing(workdir, stub):
     service.close()
 
     # assert
-    assert stub.requests[0]["body"] == {"application": "apex", "name": "startup", "tags": {"version": "unknown"}}
+    assert stub.requests[0]["body"] == {"application": "apex", "name": "startup", "tags": {"version": "unknown", "install": readInstallId()}}
 
 
 def test_simulationStartedEventIsSent(workdir, stub):
@@ -151,7 +160,54 @@ def test_simulationStartedEventIsSent(workdir, stub):
 
     # assert
     assert stub.requests[0]["body"] == {
-        "application": "apex", "name": "simulation-started", "tags": {"version": "9.9.9-TEST"}}
+        "application": "apex", "name": "simulation-started", "tags": {"version": "9.9.9-TEST", "install": readInstallId()}}
+
+
+# installation ID tests ------------------------------------------------------
+def test_installIdIsKeptUnderTheUserDataDirAndReused(workdir, stub, monkeypatch):
+    # prepare
+    monkeypatch.setattr("service.usageReportingService.sys.platform", "linux")
+    monkeypatch.setenv("XDG_DATA_HOME", str(workdir / "xdg"))
+    writeSettings(workdir, {"enabled": True, "endpoint": stub.endpoint, "key": "k"})
+
+    # execute
+    first = UsageReportingService()
+    first.close()
+    second = UsageReportingService()
+    second.close()
+
+    # assert
+    path = workdir / "xdg" / "apex" / "trace-install-id"
+    assert first.client.install_id == path.read_text().strip()
+    assert second.client.install_id == first.client.install_id
+
+
+def test_installIdEnvironmentVariableWinsOverTheFile(workdir, stub, monkeypatch):
+    # prepare
+    monkeypatch.setenv("TRACE_INSTALL_ID", "pinned-id")
+    writeSettings(workdir, {"enabled": True, "endpoint": stub.endpoint, "key": "k"})
+
+    # execute
+    service = UsageReportingService()
+    service.reportStartup()
+    assert stub.arrived.wait(5)
+    service.close()
+
+    # assert
+    assert stub.requests[0]["body"]["tags"]["install"] == "pinned-id"
+    assert not os.path.exists(installIdFile("apex"))
+
+
+def test_installIdFileFollowsThePlatform(monkeypatch):
+    monkeypatch.setenv("HOME", "/h")
+    monkeypatch.setenv("APPDATA", "/appdata")
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    monkeypatch.setattr("service.usageReportingService.sys.platform", "linux")
+    assert installIdFile("Apex") == os.path.join("/h", ".local", "share", "apex", "trace-install-id")
+    monkeypatch.setattr("service.usageReportingService.sys.platform", "darwin")
+    assert installIdFile("apex") == os.path.join("/h", "Library", "Application Support", "apex", "trace-install-id")
+    monkeypatch.setattr("service.usageReportingService.sys.platform", "win32")
+    assert installIdFile("apex") == os.path.join("/appdata", "apex", "trace-install-id")
 
 
 # opt-out tests --------------------------------------------------------------
@@ -168,6 +224,7 @@ def test_disabledSettingSendsNothing(workdir, stub):
     # assert
     assert service.client.enabled is False
     assert stub.requests == []
+    assert not os.path.exists(installIdFile("apex"))
 
 
 def test_emptyKeySendsNothing(workdir, stub):
@@ -210,6 +267,7 @@ def test_doNotTrackEnvironmentVariableWinsOverEnabledSettings(workdir, stub, mon
     assert service.client.enabled is False
     assert service.client.disabled_reason == "environment"
     assert stub.requests == []
+    assert not os.path.exists(installIdFile("apex"))
 
 
 def test_traceUsageReportingOffEnvironmentVariableWinsOverEnabledSettings(workdir, stub, monkeypatch):
@@ -226,6 +284,7 @@ def test_traceUsageReportingOffEnvironmentVariableWinsOverEnabledSettings(workdi
     assert service.client.enabled is False
     assert service.client.disabled_reason == "environment"
     assert stub.requests == []
+    assert not os.path.exists(installIdFile("apex"))
 
 
 def test_firstRunUnderEnvironmentOptOutSaysReportingIsOff(workdir, capsys, monkeypatch):

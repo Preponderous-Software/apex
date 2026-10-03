@@ -66,9 +66,13 @@ q | quit (in the browser: end the simulation and show its results)
 At this time, the user can pause/unpause, toggle the tick speed limit, increase/decrease the tick speed, manually spawn living entities, restart the simulation, enter debug mode and quit the application.
 
 ## Usage reporting
-Usage reporting is on by default: Apex sends its name (`apex`), the version from `version.txt` and the events `startup` (when the game starts) and `simulation-started` (when a simulation begins) to [trace](https://github.com/Stephenson-Software/trace) at `https://trace.danielstephenson.dev`. Nothing about you, your machine, your IP address or the simulation's contents is sent. The reporting happens on a background thread, never blocks the game, and is dropped silently if the service is unreachable.
+Usage reporting is on by default: Apex sends its name (`apex`), the version from `version.txt` and the events `startup` (when the game starts) and `simulation-started` (when a simulation begins) to [trace](https://github.com/Stephenson-Software/trace) at `https://trace.danielstephenson.dev`. Each event also carries a random installation ID (the tag `install`) so installations can be counted rather than events; beyond that, nothing about you, your machine, your IP address or the simulation's contents is sent. The reporting happens on a background thread, never blocks the game, and is dropped silently if the service is unreachable.
 
-The first run creates a `settings.json` next to `version.txt` and prints a one-line notice. To turn reporting off, any one of these is enough:
+The first run creates a `settings.json` next to `version.txt` and prints a one-line notice.
+
+The installation ID is a random UUID kept in `trace-install-id` under the user data directory: `~/.local/share/apex/` on Linux (or `$XDG_DATA_HOME/apex/`), `~/Library/Application Support/apex/` on macOS and `%APPDATA%\apex\` on Windows. It identifies no person, account or address; delete the file to get a new one. Setting the environment variable `TRACE_INSTALL_ID` sends that value instead and leaves the file alone. The file is only created while reporting is on, so every opt-out below also stops it. The browser build never reports, so it has no ID.
+
+To turn reporting off, any one of these is enough:
 
 - `"usage_reporting": {"enabled": false}` in `settings.json`:
 
