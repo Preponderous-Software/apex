@@ -1,4 +1,7 @@
 # Apex
+
+[![Play in your browser](https://img.shields.io/badge/Play-in%20your%20browser-2ea44f)](https://danielstephenson.dev/play/apex)
+
 This game allows you to manage a virtual environment containing entities that depend on each other as sources of energy. A food chain arises from the configuration of various entities and their specified diets.
 
 <img src="pics/screenshot4.PNG" alt="screenshot" width="720"/>
