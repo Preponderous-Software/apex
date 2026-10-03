@@ -6,6 +6,22 @@ import sys
 from lib.tracelib.trace_client import REASON_ENVIRONMENT, TraceClient
 
 
+def installIdFile(application):
+    """Where this installation's random trace ID is kept:
+    ``<user data dir>/<application>/trace-install-id``, the user data dir being
+    ``%APPDATA%`` on Windows, ``~/Library/Application Support`` on macOS and
+    ``$XDG_DATA_HOME`` (or ``~/.local/share``) elsewhere. The client only reads
+    or writes it when reporting is on."""
+    home = os.path.expanduser("~")
+    if sys.platform == "win32":
+        base = os.environ.get("APPDATA", "").strip() or os.path.join(home, "AppData", "Roaming")
+    elif sys.platform == "darwin":
+        base = os.path.join(home, "Library", "Application Support")
+    else:
+        base = os.environ.get("XDG_DATA_HOME", "").strip() or os.path.join(home, ".local", "share")
+    return os.path.join(base, application.lower(), "trace-install-id")
+
+
 # @author Daniel McCoy Stephenson
 # @since September 11th, 2026
 class UsageReportingService:
@@ -13,8 +29,10 @@ class UsageReportingService:
 
     What is sent: a ``startup`` event when the game starts and a
     ``simulation-started`` event when a simulation begins, each carrying the
-    program name and version only. Nothing about the machine, the user, or
-    the simulation's contents.
+    program name and version, plus a random installation ID (the tag
+    ``install``, kept in :func:`installIdFile` or taken from the
+    ``TRACE_INSTALL_ID`` environment variable) so installations can be
+    counted. Nothing about the user or the simulation's contents.
 
     Reporting is on by default and switched off by setting
     ``usage_reporting.enabled`` to ``false`` in ``settings.json`` next to
@@ -40,9 +58,9 @@ class UsageReportingService:
     DEFAULT_KEY = "McIMZNatgE3SlbwlW_pd629oWKQ2F3zwUeOCHO4BLA0"
     DETAILS_URL = "https://github.com/Stephenson-Software/trace#usage-reporting"
     NOTICE = (
-        "Usage reporting is on: apex sends its name and version at startup and a "
-        "simulation-started event to https://trace.danielstephenson.dev - nothing about you, "
-        "your machine or the simulation. Turn it off with \"usage_reporting\": {\"enabled\": false} "
+        "Usage reporting is on: apex sends its name, its version and a random installation ID "
+        "at startup and a simulation-started event to https://trace.danielstephenson.dev - "
+        "nothing about you or the simulation. Turn it off with \"usage_reporting\": {\"enabled\": false} "
         "in settings.json, or for every trace-reporting program with the environment variable "
         "TRACE_USAGE_REPORTING=off. Details: " + DETAILS_URL
     )
@@ -76,6 +94,10 @@ class UsageReportingService:
                 self.__readVersion() or self.UNKNOWN_VERSION,
                 key=str(block.get("key") or ""),
                 enabled=bool(block.get("enabled", True)),
+                # The client resolves these only after its own opt-out checks,
+                # so a disabled client never creates the file.
+                install_id=os.environ.get("TRACE_INSTALL_ID"),
+                install_id_file=installIdFile(self.APPLICATION),
             )
             if firstRun:
                 if self.client.disabled_reason == REASON_ENVIRONMENT:
