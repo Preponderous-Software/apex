@@ -82,7 +82,7 @@ def test_firstRunPrintsNoticeAndWritesSettingsBlock(workdir, capsys):
     # assert
     out = capsys.readouterr().out
     assert out.count(UsageReportingService.NOTICE) == 1
-    assert "https://github.com/Stephenson-Software/trace#usage-reporting" in out
+    assert "https://danielstephenson.dev/usage-reporting" in out
     assert "TRACE_USAGE_REPORTING=off" in out
     settings = json.loads((workdir / "settings.json").read_text())
     assert settings["usage_reporting"]["enabled"] is True
