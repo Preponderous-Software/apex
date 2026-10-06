@@ -41,7 +41,7 @@ class UsageReportingService:
     variables (the vendored client checks those first, so they win over the
     settings file). The file is created on the first run after this feature
     was added, and a one-line notice is printed exactly that once. Details:
-    https://github.com/Stephenson-Software/trace#usage-reporting
+    https://danielstephenson.dev/usage-reporting
 
     Every call returns immediately and never raises: the network happens on
     a daemon thread owned by the vendored trace client.
@@ -56,7 +56,7 @@ class UsageReportingService:
     SETTINGS_KEY = "usage_reporting"
     DEFAULT_ENDPOINT = "https://trace.danielstephenson.dev"
     DEFAULT_KEY = "McIMZNatgE3SlbwlW_pd629oWKQ2F3zwUeOCHO4BLA0"
-    DETAILS_URL = "https://github.com/Stephenson-Software/trace#usage-reporting"
+    DETAILS_URL = "https://danielstephenson.dev/usage-reporting"
     NOTICE = (
         "Usage reporting is on: apex sends its name, its version and a random installation ID "
         "at startup and a simulation-started event to https://trace.danielstephenson.dev - "
