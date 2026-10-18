@@ -107,10 +107,33 @@ def parseArguments(argv=None):
     parser.add_argument("--record", metavar="PATH",
                         help="record the first simulation as a time-sampled OpenUSD stage (.usda); "
                              "needs the optional usd-recorder package (" + REQUIREMENTS_HINT + ")")
+    parser.add_argument("--text", action="store_true",
+                        help="run in the terminal (curses) instead of a pygame window")
     return parser.parse_args(argv)
+
+# Runs the text UI (--text): a simulation in the terminal, reported to trace the same way as one
+# in the window. No pygame window is opened. curses is imported only here: Python on Windows does
+# not ship it, and the browser build has no terminal, so neither should need it to start.
+def runTextMode():
+    try:
+        from textSimulationRunner import TextSimulationRunner
+    except ImportError as e:
+        sys.exit("--text needs the curses module, which this Python lacks (" + str(e) + "); "
+                 "on Windows, pip install windows-curses")
+    usageReporting = UsageReportingService()
+    usageReporting.reportStartup()
+    try:
+        TextSimulationRunner(onSimulationStarted=usageReporting.reportSimulationStarted).run()
+    finally:
+        usageReporting.close()
 
 if __name__ == "__main__":
     arguments = parseArguments()
+    if arguments.text:
+        if arguments.record is not None:
+            sys.exit("--record is not supported with --text")
+        runTextMode()
+        sys.exit(0)
     if arguments.record is not None and not UsdRecording.isAvailable():
         sys.exit("--record needs the optional usd-recorder package: " + REQUIREMENTS_HINT)
     apex = Apex(arguments.record)
