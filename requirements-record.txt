@@ -1,0 +1,3 @@
+# Optional: only needed for `python src/apex.py --record <path.usda>` (see the README).
+# usd-recorder depends on usd-core (OpenUSD), pinned by usd-recorder itself.
+usd-recorder @ git+https://github.com/Preponderous-Software/usd-recorder@v0.1.0

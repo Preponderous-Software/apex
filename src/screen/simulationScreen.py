@@ -34,8 +34,17 @@ class SimulationScreen:
         self.__textAlertDrawTool = TextAlertDrawTool()
         self.__gameDisplayFactory = GameDisplayFactory()
         self.__selectedEntity = None
+        self.__recording = None
     
     # public methods ---------------------------------------------------------
+    # Sets the UsdRecording that records each tick of the simulation (apex.py --record), or
+    # None to record nothing, which is the default.
+    def setRecording(self, recording):
+        self.__recording = recording
+
+    def getRecording(self):
+        return self.__recording
+
     # Invokes the simulation screen loop. Async so it can run in a browser (pygbag): every wait
     # in it is awaited rather than slept, so the page gets control back once a frame.
     async def run(self):
@@ -54,6 +63,8 @@ class SimulationScreen:
             
             if not self.__paused:
                 self.simulation.update()
+                if self.__recording is not None:
+                    self.__recording.recordTick(self.simulation)
                 self.__graphik.gameDisplay.fill(self.__config.black)
                 if self.simulation.getNumLivingEntities() != 0:
                     if self.__config.localView and self.__selectedEntity != None:
