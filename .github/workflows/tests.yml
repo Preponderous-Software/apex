@@ -1,0 +1,33 @@
+name: Tests
+
+# Runs the unit test suite (run_unit_tests.sh) on every pull request and push to main.
+# pygame is the only runtime dependency the tests import; SDL's dummy drivers let it
+# load without a display or sound device.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+      TRACE_USAGE_REPORTING: "off"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install pygame pytest pytest-cov
+
+      - name: Run unit tests
+        run: bash run_unit_tests.sh
