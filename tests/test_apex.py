@@ -87,3 +87,44 @@ def test_recordRecordsTheFirstSimulationOnly():
         apex._Apex__startRecording()
         recordingClass.assert_called_once()
         assert apex.simulationScreen.getRecording() is None
+
+# text mode tests ------------------------------------------------------------
+from apex import runTextMode  # noqa: E402
+
+def test_textModeIsOffByDefault():
+    assert parseArguments([]).text == False
+
+def test_textArgumentSelectsTextMode():
+    assert parseArguments(["--text"]).text == True
+
+def test_textModeRunsTheTextRunnerAndReportsUsage():
+    with patch("apex.UsageReportingService") as reportingClass, \
+            patch("textSimulationRunner.TextSimulationRunner") as runnerClass, \
+            patch("pygame.display.set_mode") as setMode:
+        runTextMode()
+
+    reporting = reportingClass.return_value
+    reporting.reportStartup.assert_called_once()
+    runnerClass.assert_called_once_with(onSimulationStarted=reporting.reportSimulationStarted)
+    runnerClass.return_value.run.assert_called_once()
+    reporting.close.assert_called_once()
+    setMode.assert_not_called()  # no pygame window in text mode
+
+def test_textModeClosesUsageReportingWhenTheRunnerFails():
+    with patch("apex.UsageReportingService") as reportingClass, \
+            patch("textSimulationRunner.TextSimulationRunner") as runnerClass:
+        runnerClass.return_value.run.side_effect = KeyboardInterrupt
+        try:
+            runTextMode()
+        except KeyboardInterrupt:
+            pass
+
+    reportingClass.return_value.close.assert_called_once()
+
+def test_apexModuleDoesNotImportCurses():
+    # the browser build and Windows Python have no curses; only --text may need it
+    import apex
+    import inspect
+    source = inspect.getsource(apex)
+    header = source.split("class Apex")[0]
+    assert "curses" not in header and "textSimulationRunner" not in header

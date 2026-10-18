@@ -65,6 +65,35 @@ q | quit (in the browser: end the simulation and show its results)
 
 At this time, the user can pause/unpause, toggle the tick speed limit, increase/decrease the tick speed, manually spawn living entities, restart the simulation, enter debug mode and quit the application.
 
+## Text mode
+`--text` runs the simulation in a terminal instead of a pygame window, no window or sound needed:
+
+```bash
+python3 src/apex.py --text
+```
+
+![Apex running in a terminal with --text](pics/text-ui.gif)
+
+The grid is drawn one character per location, showing the entity on top as the window does:
+`C` chicken, `P` pig, `K` cow, `W` wolf, `F` fox, `R` rabbit, `"` grass, `&` berry bush, `*` berries,
+`~` water, `#` rock, `x` excrement and `.` bare ground. Below it are the tick count, the population of
+each species, the latest event (a death or a birth) and the legend. Colour is used where the terminal
+supports it, and the letters alone are enough where it does not. A terminal too small for the grid
+shows as much of it as fits.
+
+Key | Action
+------------ | -------------
+space / escape | pause/unpause
+c / p / k / w / f / b | spawn a chicken / pig / cow / wolf / fox / rabbit
+] / [ | increase / decrease tick speed
+l | toggle tick speed limit
+r | start a new simulation
+q | quit (the environment summary is printed once the terminal is restored)
+
+When every living entity has died the simulation stops and waits for r or q. Text mode needs
+Python's `curses` module, which Linux and macOS include; on Windows, `pip install windows-curses`
+first. `--record` is not available in text mode, and the browser build is unaffected.
+
 ## Recording a replay
 `--record <path.usda>` records the first simulation's history as a time-sampled
 [OpenUSD](https://openusd.org) stage, one time code per tick (30 per second), that can be scrubbed in
