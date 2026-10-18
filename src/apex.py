@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import os
 import sys
@@ -10,6 +11,7 @@ from screen.setupScreen import SetupScreen
 from screen.simulationScreen import SimulationScreen
 from service.usageReportingService import UsageReportingService
 from simulation.config import Config
+from simulation.usdRecording import REQUIREMENTS_HINT, UsdRecording
 from ui.clickableGraphik import ClickableGraphik
 from ui.gameDisplayFactory import GameDisplayFactory
 
@@ -22,7 +24,11 @@ class Apex:
     ICON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'media', 'icon', 'icon.PNG')
 
     # constructors -----------------------------------------------------------
-    def __init__(self):
+    def __init__(self, recordPath=None):
+        # --record <path>: the first simulation is recorded to this .usda file (usdRecording.py)
+        self.recordPath = recordPath
+        self.recording = None
+        self.recordingFinished = False
         pygame.init()
         self.usageReporting = UsageReportingService()
         self.usageReporting.reportStartup()
@@ -43,6 +49,8 @@ class Apex:
     async def run(self):
         while True:
             result = await self.currentScreen.run()
+            if self.currentScreen is self.simulationScreen:
+                self.__finishRecording()
             if result == ScreenType.MAIN_MENU_SCREEN:
                 self.currentScreen = self.mainMenuScreen
             elif result == ScreenType.SETUP_SCREEN:
@@ -50,6 +58,7 @@ class Apex:
             elif result == ScreenType.SIMULATION_SCREEN:
                 self.config.calculateValues()
                 self.simulationScreen.initializeSimulation()
+                self.__startRecording()
                 self.usageReporting.reportSimulationStarted()
                 self.currentScreen = self.simulationScreen
             elif result == ScreenType.RESULTS_SCREEN:
@@ -62,6 +71,24 @@ class Apex:
                 self.__quitApplication()
 
     # private methods --------------------------------------------------------
+    # Starts recording the simulation that is about to run, if --record was given and the first
+    # simulation has not been recorded yet: one file holds one simulation's history.
+    def __startRecording(self):
+        if self.recordPath is None or self.recordingFinished:
+            return
+        self.recording = UsdRecording(self.recordPath, self.config.gridSize)
+        self.simulationScreen.setRecording(self.recording)
+
+    # Writes the recording once its simulation has ended (or the game is left).
+    def __finishRecording(self):
+        if self.recording is None:
+            return
+        self.simulationScreen.setRecording(None)
+        path = self.recording.close()
+        print("Recorded " + str(self.recording.getTicksRecorded()) + " ticks to " + str(path))
+        self.recording = None
+        self.recordingFinished = True
+
     # Sets the window icon, skipping it instead of crashing when the file is missing or unreadable.
     def __setIcon(self, path):
         try:
@@ -75,6 +102,16 @@ class Apex:
         pygame.quit()
         quit()
 
+def parseArguments(argv=None):
+    parser = argparse.ArgumentParser(description="Apex: a food-chain simulation.")
+    parser.add_argument("--record", metavar="PATH",
+                        help="record the first simulation as a time-sampled OpenUSD stage (.usda); "
+                             "needs the optional usd-recorder package (" + REQUIREMENTS_HINT + ")")
+    return parser.parse_args(argv)
+
 if __name__ == "__main__":
-    apex = Apex()
+    arguments = parseArguments()
+    if arguments.record is not None and not UsdRecording.isAvailable():
+        sys.exit("--record needs the optional usd-recorder package: " + REQUIREMENTS_HINT)
+    apex = Apex(arguments.record)
     asyncio.run(apex.run())

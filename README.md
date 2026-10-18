@@ -65,6 +65,32 @@ q | quit (in the browser: end the simulation and show its results)
 
 At this time, the user can pause/unpause, toggle the tick speed limit, increase/decrease the tick speed, manually spawn living entities, restart the simulation, enter debug mode and quit the application.
 
+## Recording a replay
+`--record <path.usda>` records the first simulation's history as a time-sampled
+[OpenUSD](https://openusd.org) stage, one time code per tick (30 per second), that can be scrubbed in
+usdview, Blender or any USD tool. It needs the optional
+[usd-recorder](https://github.com/Preponderous-Software/usd-recorder) package (Python 3.10 or newer;
+it brings in `usd-core`), which the game does not otherwise need:
+
+```bash
+pip install -r requirements-record.txt
+python3 src/apex.py --record run.usda
+```
+
+Start a simulation as usual; the file is written when that simulation ends (or when you restart or
+quit), and later simulations are not recorded. Every entity is recorded at `(x, y, layer)`, where
+`layer` is its place in its location's stack (the top one is what the game draws), in the game's
+colour, with its `kind` (`Grass`, `Chicken`, `Wolf`, ...) and, for living entities, its `energy`;
+the stage carries the `livingEntities`, `grass` and `excrement` counts per tick. Without `--record`
+nothing is recorded or imported, and the browser build is unaffected.
+
+![A recorded simulation replayed in Blender](pics/replay.gif)
+
+The replay above is a 600-tick simulation on a 16×16 grid (6,407 entities over the run, a 10 MB
+stage), recorded headlessly by stepping `Simulation` and `UsdRecording` tick by tick the way the
+simulation screen does, then rendered top-down with headless Blender's USD importer and Cycles in
+the recorded colours.
+
 ## Usage reporting
 Usage reporting is on by default: Apex sends its name (`apex`), the version from `version.txt` and the events `startup` (when the game starts) and `simulation-started` (when a simulation begins) to [trace](https://danielstephenson.dev/usage-reporting) at `https://trace.danielstephenson.dev`. Each event also carries a random installation ID (the tag `install`) so installations can be counted rather than events; beyond that, nothing about you, your machine, your IP address or the simulation's contents is sent. The reporting happens on a background thread, never blocks the game, and is dropped silently if the service is unreachable.
 

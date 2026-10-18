@@ -169,3 +169,29 @@ def test_aTapOnStartSimulationLeavesTheSetupScreen(frames):
     config.gridSize = config.grassFactor = config.grassGrowTime = 5
 
     assert asyncio.run(SetupScreen(graphik, config).run()) == ScreenType.SIMULATION_SCREEN
+
+
+def test_simulationScreenRecordsEveryTickWhenRecording(frames):
+    queued, awaited = frames
+    queued.extend([[], [], []])
+    screen = getSimulationScreen(limitTickSpeed=False)
+    screen.simulation.getNumLivingEntities.side_effect = [3, 3, 3, 3, 0, 0]
+    recording = MagicMock()
+    screen.setRecording(recording)
+
+    asyncio.run(screen.run())
+
+    # one call per simulated tick, each after that tick's update
+    assert recording.recordTick.call_count == 3
+    recording.recordTick.assert_called_with(screen.simulation)
+
+
+def test_simulationScreenRecordsNothingByDefault(frames):
+    queued, awaited = frames
+    queued.extend([[], []])
+    screen = getSimulationScreen(limitTickSpeed=False)
+    screen.simulation.getNumLivingEntities.side_effect = [3, 3, 0, 0]
+
+    asyncio.run(screen.run())
+
+    assert screen.getRecording() is None

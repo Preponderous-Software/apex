@@ -44,3 +44,46 @@ def test_startupDrawsOnTheDisplayCreatedByGameDisplayFactory():
     # assert
     factoryClass.return_value.createGameDisplay.assert_called_once_with(apex.config)
     assert apex.graphik.getGameDisplay() == newDisplay
+
+# --record tests ---------------------------------------------------------------
+from apex import parseArguments  # noqa: E402
+
+
+def getTestApex(recordPath=None):
+    with patch("apex.UsageReportingService"), \
+            patch("apex.GameDisplayFactory"), \
+            patch("pygame.display.set_icon"):
+        return Apex(recordPath)
+
+def test_noArgumentsRecordNothing():
+    assert parseArguments([]).record is None
+
+def test_recordArgumentTakesAPath():
+    assert parseArguments(["--record", "out.usda"]).record == "out.usda"
+
+def test_withoutRecordNoRecordingStarts():
+    apex = getTestApex()
+
+    with patch("apex.UsdRecording") as recordingClass:
+        apex._Apex__startRecording()
+
+    recordingClass.assert_not_called()
+    assert apex.simulationScreen.getRecording() is None
+
+def test_recordRecordsTheFirstSimulationOnly():
+    apex = getTestApex("out.usda")
+
+    with patch("apex.UsdRecording") as recordingClass:
+        apex._Apex__startRecording()
+        recording = recordingClass.return_value
+        assert apex.simulationScreen.getRecording() is recording
+        recordingClass.assert_called_once_with("out.usda", apex.config.gridSize)
+
+        apex._Apex__finishRecording()
+        recording.close.assert_called_once()
+        assert apex.simulationScreen.getRecording() is None
+
+        # a restarted or automatically restarted simulation is not recorded over the first
+        apex._Apex__startRecording()
+        recordingClass.assert_called_once()
+        assert apex.simulationScreen.getRecording() is None
