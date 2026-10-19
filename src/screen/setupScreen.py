@@ -12,7 +12,6 @@ class SetupScreen:
     def __init__(self, graphik: Graphik, config: Config):
         self.graphik = graphik
         self.config = config
-        self.running = True
         self.nextScreen = ScreenType.SIMULATION_SCREEN
         self.changeScreen = False
 

@@ -11,7 +11,6 @@ from simulation.config import Config
 class MainMenuScreen:
     def __init__(self, graphik: Graphik):
         self.graphik = graphik
-        self.running = True
         self.nextScreen = ScreenType.SETUP_SCREEN
         self.changeScreen = False
 

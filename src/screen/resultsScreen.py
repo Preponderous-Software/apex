@@ -10,7 +10,6 @@ from simulation.config import Config
 class ResultsScreen:
     def __init__(self, graphik: Graphik):
         self.graphik = graphik
-        self.running = True
         self.nextScreen = ScreenType.SETUP_SCREEN
         self.changeScreen = False
         self.simulation = None
