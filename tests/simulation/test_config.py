@@ -7,6 +7,13 @@ from simulation.config import Config
 
 
 # helper methods -------------------------------------------------------------
+@pytest.fixture
+def seededRandom():
+    # seeding is global, so restore the state for the tests that follow
+    state = random.getstate()
+    yield random.seed
+    random.setstate(state)
+
 def getSpeciesFactorsAndCounts(config):
     return [
         (config.chickenFactor, config.numChickensToStart),
@@ -19,8 +26,8 @@ def getSpeciesFactorsAndCounts(config):
 
 # randomized factor tests ----------------------------------------------------
 @pytest.mark.parametrize("seed", range(20))
-def test_randomFactorsFallWithinTheirRanges(seed):
-    random.seed(seed)
+def test_randomFactorsFallWithinTheirRanges(seed, seededRandom):
+    seededRandom(seed)
 
     config = Config()
 
@@ -35,8 +42,8 @@ def test_randomFactorsFallWithinTheirRanges(seed):
     assert 0 <= config.rabbitFactor < 10
 
 @pytest.mark.parametrize("seed", range(20))
-def test_gridSizeAndGrassGrowTimeExcludeTheirMaximums(seed):
-    random.seed(seed)
+def test_gridSizeAndGrassGrowTimeExcludeTheirMaximums(seed, seededRandom):
+    seededRandom(seed)
 
     config = Config()
 
