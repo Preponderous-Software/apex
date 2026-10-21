@@ -290,6 +290,27 @@ def test_runPrintsTheSummaryAfterTheTerminalIsGivenBack(capsys):
 
     assert "Length of simulation" in capsys.readouterr().out
 
+def test_runPrintsTheSummaryOfASimulationThatEndedBeforeQuit(capsys):
+    runner = TextSimulationRunner(getTestConfig(), cursesModule=FakeCurses())
+    def endByExtinctionThenQuit(screen):
+        runner.stdscr = screen
+        originalStdout = sys.stdout
+        sys.stdout = runner.eventLog  # as runInScreen does while the UI owns the terminal
+        try:
+            runner.newSimulation()
+            for entityId in list(runner.simulation.livingEntityIds):
+                runner.simulation.removeEntity(runner.simulation.entities[entityId])
+            runner.step()
+            assert runner.isEnded()
+            runner.handleKey(ord("q"))
+        finally:
+            sys.stdout = originalStdout
+    runner.runInScreen = endByExtinctionThenQuit
+
+    runner.run()
+
+    assert "Length of simulation: 1 ticks" in capsys.readouterr().out
+
 def test_textModeIsMuted():
     assert TextSimulationRunner(getTestConfig(), cursesModule=FakeCurses()).config.muted == True
 

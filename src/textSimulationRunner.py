@@ -1,4 +1,6 @@
+import contextlib
 import curses
+import io
 import os
 import sys
 import time
@@ -43,6 +45,7 @@ class TextSimulationRunner:
         self.__clock = clock
         self.__colorAttributes = {}
         self.__cleanedUp = True
+        self.__summary = ""  # the environment summary of the latest simulation to end
         self.__ended = False
 
     # public methods ---------------------------------------------------------
@@ -55,6 +58,7 @@ class TextSimulationRunner:
         finally:
             # printed after curses has given the terminal back, so the summary stays readable
             self.__cleanup()
+            sys.stdout.write(self.__summary)
 
     def runInScreen(self, stdscr):
         self.stdscr = stdscr
@@ -221,4 +225,9 @@ class TextSimulationRunner:
     def __cleanup(self):
         if self.simulation is not None and not self.__cleanedUp:
             self.__cleanedUp = True
-            self.simulation.cleanup()
+            # kept rather than printed: a simulation that ends while the UI owns the terminal
+            # would otherwise print its summary into the event log, where nobody sees it
+            summary = io.StringIO()
+            with contextlib.redirect_stdout(summary):
+                self.simulation.cleanup()
+            self.__summary = summary.getvalue()
