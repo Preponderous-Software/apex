@@ -34,10 +34,12 @@ Each of these attempt to gain energy and reproduce. At the bottom of the food ch
 
 Berry bushes are a second food source. A bush that has accumulated enough energy periodically grows Berries on its own location, up to a cap. Chickens, pigs and rabbits eat berries; pigs can also eat the bush itself. Cows eat grass only.
 
-If there is no grass, everything collapses. 
+Foxes hunt chickens, pigs and rabbits. Wolves hunt those three as well as cows and foxes.
+
+Without grass, cows starve, and every other species depends on the berries the remaining bushes grow.
 
 ## How does grass respawn?
-Living entities spawn excrement when their energy needs are met and this turns into grass over time.
+Living entities spawn excrement when their energy needs are met and this turns into grass over time. The grow time, shared by all excrement in a simulation, is picked at random between 100 and 299 ticks, and excrement next to water turns into grass in half that time.
 
 ## Controls
 Key | Action
@@ -62,8 +64,6 @@ l | toggle tick speed limit
 f11 | toggle fullscreen mode
 r | restart
 q | quit (in the browser: end the simulation and show its results)
-
-At this time, the user can pause/unpause, toggle the tick speed limit, increase/decrease the tick speed, manually spawn living entities, restart the simulation, enter debug mode and quit the application.
 
 ## Text mode
 `--text` runs the simulation in a terminal instead of a pygame window, no window or sound needed:
