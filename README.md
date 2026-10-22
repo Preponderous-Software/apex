@@ -39,7 +39,7 @@ Foxes hunt chickens, pigs and rabbits. Wolves hunt those three as well as cows a
 Without grass, cows starve, and every other species depends on the berries the remaining bushes grow.
 
 ## How does grass respawn?
-Living entities spawn excrement when their energy needs are met and this turns into grass over time. The grow time is picked at random between 100 and 299 ticks, and excrement next to water turns into grass in half that time.
+Living entities spawn excrement when their energy needs are met and this turns into grass over time. The grow time, shared by all excrement in a simulation, is picked at random between 100 and 299 ticks, and excrement next to water turns into grass in half that time.
 
 ## Controls
 Key | Action
