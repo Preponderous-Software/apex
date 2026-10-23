@@ -201,3 +201,26 @@ def test_initiateMoveAction_staysPutWhenEveryDirectionIsOffGrid(mock_random, moc
     # assert
     assert location.isEntityPresent(rabbit)
     assert rabbit.getEnergy() == energyBefore
+
+@patch("actionhandler.actionHandler.random")
+@patch("actionhandler.moveActionHandler.random")
+def test_initiateMoveAction_staysPutWhenEveryNeighborIsImpassable(mock_random, mock_base_random):
+    # prepare: walled in by water on all four sides.
+    grid = Grid(3, 3)
+    handler = getHandler(grid)
+    location = grid.getLocationByCoordinates(1, 1)
+    for x, y in [(1, 0), (2, 1), (1, 2), (0, 1)]:
+        grid.getLocationByCoordinates(x, y).addEntity(Water())
+    rabbit = getHungryRabbit()
+    location.addEntity(rabbit)
+    energyBefore = rabbit.getEnergy()
+    mock_random.randrange.return_value = 1
+    mock_base_random.randrange.return_value = 1  # always right, onto water
+
+    # execute
+    handler.initiateMoveAction(rabbit)
+
+    # assert
+    assert location.isEntityPresent(rabbit)
+    assert grid.getLocationByCoordinates(2, 1).isEntityPresent(rabbit) == False
+    assert rabbit.getEnergy() == energyBefore
