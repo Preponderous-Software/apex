@@ -66,8 +66,8 @@ class MoveActionHandler(ActionHandler):
                 if (not self.isLocationImpassible(newLocation)):
                     break
             
-        if newLocation == -1:
-            # location doesn't exist, we're at a border
+        if newLocation == -1 or self.isLocationImpassible(newLocation):
+            # we're at a border, or every wander attempt was blocked
             return
         
         # move entity
