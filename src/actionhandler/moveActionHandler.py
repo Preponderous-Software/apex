@@ -59,11 +59,7 @@ class MoveActionHandler(ActionHandler):
             # no food found
             for i in range(0, 10):
                 newLocation = self.getRandomAdjacentLocation(grid, location)
-
-                if (newLocation == -1 or self.isLocationImpassible(newLocation)):
-                    continue
-
-                if (not self.isLocationImpassible(newLocation)):
+                if newLocation != -1 and not self.isLocationImpassible(newLocation):
                     break
             
         if newLocation == -1 or self.isLocationImpassible(newLocation):
