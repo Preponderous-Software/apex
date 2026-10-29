@@ -278,7 +278,7 @@ class SimulationScreen:
             nextLocation = grid.getDown(nextLocation)
 
     def __drawTextAlerts(self):
-        for textAlert in self.__textAlerts:
+        for textAlert in list(self.__textAlerts):
             self.__textAlertDrawTool.drawTextAlert(textAlert, self.__graphik)
             textAlert.duration -= 1
             if textAlert.duration == 0:
