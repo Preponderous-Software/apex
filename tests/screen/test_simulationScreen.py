@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
 
 import pygame
-import pytest
 
 from entity.chicken import Chicken
 from entity.cow import Cow
@@ -383,7 +382,6 @@ def test_textAlertIsDrawnOncePerFrameUntilItsDurationRunsOut():
 
     assert drawTextAlerts(screen) == []
 
-@pytest.mark.skip(reason="issue 159: the alert after an expiring one is skipped for a frame, because the list is mutated while iterated")
 def test_everyTextAlertIsDrawnOnTheFrameAnotherExpires():
     screen = getRealConfigScreen()
     expiring = TextAlert(0, 0, 12, (0, 0, 0), 1)
