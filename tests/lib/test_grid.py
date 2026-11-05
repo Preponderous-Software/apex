@@ -70,13 +70,14 @@ def test_addLocation_makesItRetrievableByIDAndCoordinates():
     assert grid.getLocation(location.getID()) is location
     assert grid.getLocationByCoordinates(4, 5) is location
 
-@pytest.mark.skip(reason="issue 164: getFirstLocation indexes the UUID-keyed locations dict with 0")
 def test_getFirstLocation_returnsTheFirstGeneratedLocation():
     grid = Grid(2, 2)
 
     assert grid.getFirstLocation() is grid.getLocationByCoordinates(0, 0)
 
-@pytest.mark.skip(reason="issue 164: removeLocation calls list.remove on the locations dict")
+def test_getFirstLocation_returnsNegativeOneForAnEmptyGrid():
+    assert Grid(0, 0).getFirstLocation() == -1
+
 def test_removeLocation_removesItFromTheGrid():
     grid = Grid(2, 2)
     location = grid.getLocationByCoordinates(1, 1)
@@ -85,6 +86,14 @@ def test_removeLocation_removesItFromTheGrid():
 
     assert grid.getSize() == 3
     assert grid.getLocationByCoordinates(1, 1) == -1
+
+def test_removeLocation_rejectsALocationFromAnotherGrid():
+    grid = Grid(1, 1)
+
+    with pytest.raises(KeyError):
+        grid.removeLocation(Location(0, 0))
+
+    assert grid.getSize() == 1
 
 # getRandomLocation tests ----------------------------------------------------
 @patch("lib.pyenvlib.grid.random")
