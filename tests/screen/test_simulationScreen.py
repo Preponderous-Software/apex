@@ -4,11 +4,14 @@ import pygame
 
 from entity.chicken import Chicken
 from entity.cow import Cow
+from entity.drawableEntity import DrawableEntity
 from entity.fox import Fox
 from entity.grass import Grass
 from entity.pig import Pig
 from entity.rabbit import Rabbit
+from entity.water import Water
 from entity.wolf import Wolf
+from lib.pyenvlib.environment import Environment
 from lib.pyenvlib.location import Location
 from screen.screenType import ScreenType
 from screen.simulationScreen import SimulationScreen
@@ -390,3 +393,225 @@ def test_everyTextAlertIsDrawnOnTheFrameAnotherExpires():
 
     assert drawTextAlerts(screen) == [expiring, following]
     assert following.duration == 1
+
+# drawing tests --------------------------------------------------------------
+def getDrawingScreen(gridSize=3):
+    # a real grid behind a recording Graphik: what is checked is what reaches the display
+    graphik = MagicMock()
+    graphik.gameDisplay.get_size.return_value = (900, 600)
+    config = Config()
+    config.eyesEnabled = False
+    config.localViewSize = 1
+    screen = SimulationScreen(graphik, config)
+    screen.simulation = MagicMock()
+    screen.simulation.environment = Environment("test", gridSize)
+    screen.simulation.locationWidth = 10
+    screen.simulation.locationHeight = 20
+    return screen
+
+def getGrid(screen):
+    return screen.simulation.environment.getGrid()
+
+def place(screen, entity, x, y):
+    getGrid(screen).addEntityToLocation(entity, getGrid(screen).getLocationByCoordinates(x, y))
+
+def fillWithColoredEntities(screen):
+    # one colour per location, so a location drawn in the wrong place cannot go unnoticed
+    colors = {}
+    for location in getGrid(screen).getLocations().values():
+        x, y = location.getX(), location.getY()
+        colors[(x, y)] = (x, y, 100)
+        place(screen, DrawableEntity("marker", colors[(x, y)], False), x, y)
+    return colors
+
+def getRectangles(screen):
+    return [call.args for call in screen._SimulationScreen__graphik.drawRectangle.call_args_list]
+
+def getDrawnText(screen):
+    return [call.args[0] for call in screen._SimulationScreen__graphik.drawText.call_args_list]
+
+def test_everyLocationIsDrawnOnceAtItsGridPositionWithOverlap():
+    screen = getDrawingScreen(gridSize=2)
+    brown = getConfig(screen).brown
+
+    screen._SimulationScreen__drawEnvironment()
+
+    # a pixel of overlap on each side, so no seams show between locations
+    assert sorted(getRectangles(screen)) == sorted([
+        (-1, -1, 12, 22, brown),
+        (9, -1, 12, 22, brown),
+        (-1, 19, 12, 22, brown),
+        (9, 19, 12, 22, brown),
+    ])
+
+def test_livingEntityOnTopOfALocationIsDrawnWithEyes():
+    screen = getDrawingScreen()
+    config = getConfig(screen)
+    config.eyesEnabled = True
+    chicken = Chicken("chicken")
+    trackOldest(screen, chicken)
+
+    screen._SimulationScreen__drawLocation(getLocationWith(Grass(), chicken), 0, 0, 80, 40)
+
+    assert getRectangles(screen) == [
+        (0, 0, 80, 40, chicken.getColor()),
+        (10, 10, 20, 10, config.white),
+        (40, 10, 20, 10, config.white),
+        (15, 12.5, 10, 5, config.black),
+        (45, 12.5, 10, 5, config.black),
+    ]
+
+def test_eyesAreOnlyDrawnForALivingEntityOnTop():
+    screen = getDrawingScreen()
+    getConfig(screen).eyesEnabled = True
+    chicken = Chicken("chicken")
+    trackOldest(screen, chicken)
+
+    for location in [-1, getLocationWith(), getLocationWith(chicken, Grass())]:
+        screen._SimulationScreen__drawLocation(location, 0, 0, 80, 40)
+
+    assert len(getRectangles(screen)) == 3
+
+def test_eyesCanBeTurnedOff():
+    screen = getDrawingScreen()
+    chicken = Chicken("chicken")
+    trackOldest(screen, chicken)
+
+    screen._SimulationScreen__drawLocation(getLocationWith(chicken), 0, 0, 80, 40)
+
+    assert len(getRectangles(screen)) == 1
+
+def drawLocalViewAround(screen, x, y):
+    colors = fillWithColoredEntities(screen)
+    selected = Chicken("selected")
+    place(screen, selected, x, y)
+    trackOldest(screen, selected)
+    colors[(x, y)] = selected.getColor()
+    screen._SimulationScreen__selectedEntity = selected
+    screen._SimulationScreen__drawAreaAroundSelectedEntity()
+    return colors
+
+def test_localViewKeepsTheSelectedEntityCentredOnTheDisplay():
+    screen = getDrawingScreen(gridSize=3)
+
+    colors = drawLocalViewAround(screen, 1, 1)
+
+    # 900x600 split into three cells a side, and the grid lines up with them exactly
+    rectangles = getRectangles(screen)
+    for (x, y), color in colors.items():
+        assert (x * 300, y * 200, 300, 200, color) in rectangles
+
+def test_localViewFollowsTheSelectedEntityToTheEdgeOfTheGrid():
+    screen = getDrawingScreen(gridSize=3)
+
+    colors = drawLocalViewAround(screen, 0, 0)
+
+    # the corner the entity stands in stays at the centre; the grid extends down and right of it
+    rectangles = getRectangles(screen)
+    for (x, y), color in colors.items():
+        assert (300 + x * 300, 200 + y * 200, 300, 200, color) in rectangles
+
+def test_localViewFillsTheSpaceBeyondTheGridWithBlack():
+    screen = getDrawingScreen(gridSize=3)
+
+    drawLocalViewAround(screen, 0, 0)
+
+    # the column left of the corner and the one right of the grid, for each of the three rows
+    black = getConfig(screen).black
+    blackCells = [rectangle[:2] for rectangle in getRectangles(screen) if rectangle[4] == black]
+    assert sorted(blackCells) == sorted([(0, 200), (0, 400), (0, 600), (1200, 200), (1200, 400), (1200, 600)])
+
+def test_localViewSizeSetsHowManyLocationsFitOnTheDisplay():
+    screen = getDrawingScreen(gridSize=3)
+    getConfig(screen).localViewSize = 2
+
+    colors = drawLocalViewAround(screen, 1, 1)
+
+    # five cells a side, centred on the third
+    assert (360, 240, 180, 120, colors[(1, 1)]) in getRectangles(screen)
+    assert (180, 120, 180, 120, colors[(0, 0)]) in getRectangles(screen)
+
+# stats tests ----------------------------------------------------------------
+def getStatsScreen():
+    screen = getDrawingScreen()
+    screen.simulation.numTicks = 7
+    screen.simulation.entities = {"a": None, "b": None}
+    screen.simulation.getNumLivingEntities.return_value = 6
+    screen.simulation.getNumberOfEntitiesOfType.return_value = 4
+    screen.simulation.getNumExcrement.return_value = 3
+    species = {Chicken: 11, Pig: 12, Cow: 13, Wolf: 14, Fox: 15, Rabbit: 16}
+    screen.simulation.getNumberOfLivingEntitiesOfType.side_effect = species.__getitem__
+    return screen
+
+def test_statsListEachCountUnderItsLabel():
+    screen = getStatsScreen()
+    getConfig(screen).limitTickSpeed = False
+
+    screen._SimulationScreen__displayStats()
+
+    assert getDrawnText(screen) == [
+        "Num Ticks:", "7", "",
+        "Entities:", "2", "",
+        "Living Entities:", "6", "",
+        "Grass:", "4", "",
+        "Excrement:", "3", "",
+        "Chickens:", "11", "",
+        "Pigs:", "12", "",
+        "Cows:", "13", "",
+        "Wolves:", "14", "",
+        "Foxes:", "15", "",
+        "Rabbits:", "16", "",
+    ]
+    screen.simulation.getNumberOfEntitiesOfType.assert_called_once_with(Grass)
+
+def test_statsShowTheTickSpeedOnlyWhenItIsLimited():
+    screen = getStatsScreen()
+    config = getConfig(screen)
+    config.limitTickSpeed = True
+    config.tickSpeed = 25
+
+    screen._SimulationScreen__displayStats()
+
+    assert getDrawnText(screen)[:3] == ["Tick Speed:", "25", ""]
+
+def test_statsAreDrawnOneLineEachDownTheDisplay():
+    screen = getStatsScreen()
+    config = getConfig(screen)
+    config.limitTickSpeed = False
+    config.textSize = 20
+
+    screen._SimulationScreen__displayStats()
+
+    calls = screen._SimulationScreen__graphik.drawText.call_args_list
+    assert calls[0].args[1:] == (100, 10, 20, config.black)
+    assert calls[1].args[1:] == (100, 30, 20, config.black)
+    assert calls[-1].args[1:3] == (100, 10 + 20 * (len(calls) - 1))
+
+# initialization tests -------------------------------------------------------
+def getInitializedScreen(muted):
+    graphik = MagicMock()
+    graphik.gameDisplay.get_size.return_value = (500, 500)
+    config = Config()
+    config.gridSize = 16
+    config.muted = muted
+    config.calculateValues()
+    screen = SimulationScreen(graphik, config)
+    with patch("screen.simulationScreen.pygame.display") as display, patch("builtins.print"):
+        screen.initializeSimulation()
+    return screen, display
+
+def test_initializeSimulationGeneratesAndPlacesTheEntities():
+    screen, _ = getInitializedScreen(muted=False)
+
+    assert screen.simulation.getNumberOfEntitiesOfType(Water) == getConfig(screen).numWaterEntities
+    assert screen.simulation.environment.getNumEntities() > 0
+
+def test_initializeSimulationCaptionsTheWindowWithTheGridSize():
+    _, display = getInitializedScreen(muted=False)
+
+    display.set_caption.assert_called_once_with("Apex - Simulation - 16x16")
+
+def test_captionSaysSoWhenMuted():
+    _, display = getInitializedScreen(muted=True)
+
+    display.set_caption.assert_called_once_with("Apex - Simulation - 16x16 (muted)")

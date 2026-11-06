@@ -195,3 +195,208 @@ def test_simulationScreenRecordsNothingByDefault(frames):
     asyncio.run(screen.run())
 
     assert screen.getRecording() is None
+
+
+# simulation screen event tests ----------------------------------------------
+def keyDown(key):
+    return pygame.event.Event(pygame.KEYDOWN, key=key)
+
+
+def getRunningSimulationScreen():
+    # alive throughout, so only the events a test queues can end the loop
+    screen = getSimulationScreen(limitTickSpeed=False)
+    screen.simulation.getNumLivingEntities.return_value = 3
+    return screen
+
+
+def getScreenGraphik(screen):
+    return screen._SimulationScreen__graphik
+
+
+def getScreenConfig(screen):
+    return screen._SimulationScreen__config
+
+
+def test_simulationScreenClosingTheWindowEndsTheGame(frames):
+    queued, awaited = frames
+    queued.extend([[pygame.event.Event(pygame.QUIT)]])
+    screen = getRunningSimulationScreen()
+
+    assert asyncio.run(screen.run()) == ScreenType.NONE
+    # the frame the window closes on is still played out
+    assert screen.simulation.numTicks == 1
+
+
+def test_simulationScreenHandsKeysToItsControls(frames):
+    queued, awaited = frames
+    queued.extend([[keyDown(pygame.K_r)]])
+    screen = getRunningSimulationScreen()
+
+    assert asyncio.run(screen.run()) == ScreenType.SETUP_SCREEN
+
+
+def test_simulationScreenRecalculatesLocationSizeWhenTheWindowIsResized(frames):
+    queued, awaited = frames
+    queued.extend([[pygame.event.Event(pygame.VIDEORESIZE, size=(640, 480), w=640, h=480)]])
+    screen = getRunningSimulationScreen()
+
+    asyncio.run(screen.run())
+
+    screen.simulation.initializeLocationWidthAndHeight.assert_called_once_with()
+
+
+def getClickableScreen(localView):
+    screen = getRunningSimulationScreen()
+    screen.simulation.locationWidth = 10
+    screen.simulation.locationHeight = 10
+    getScreenConfig(screen).localView = localView
+    grid = screen.simulation.environment.getGrid.return_value
+    grid.getLocationByCoordinates.return_value = -1
+    return screen, grid
+
+
+def test_simulationScreenSelectsOnAClickInTheGlobalView(frames):
+    queued, awaited = frames
+    queued.extend([[pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(25, 35), button=1)]])
+    screen, grid = getClickableScreen(localView=False)
+
+    asyncio.run(screen.run())
+
+    grid.getLocationByCoordinates.assert_called_once_with(2, 3)
+
+
+def test_simulationScreenIgnoresClicksInTheLocalView(frames):
+    queued, awaited = frames
+    queued.extend([[pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(25, 35), button=1)]])
+    screen, grid = getClickableScreen(localView=True)
+
+    asyncio.run(screen.run())
+
+    grid.getLocationByCoordinates.assert_not_called()
+
+
+def test_pausingStopsTheSimulationAndSaysSo(frames):
+    queued, awaited = frames
+    queued.extend([[keyDown(pygame.K_SPACE)], []])
+    screen = getRunningSimulationScreen()
+
+    asyncio.run(screen.run())
+
+    screen.simulation.update.assert_not_called()
+    assert screen.simulation.numTicks == 0
+    config = getScreenConfig(screen)
+    getScreenGraphik(screen).drawText.assert_any_call("PAUSED", 640, 360, 50, config.black)
+
+
+def test_unpausingResumesTheSimulation(frames):
+    queued, awaited = frames
+    queued.extend([[keyDown(pygame.K_SPACE)], [keyDown(pygame.K_SPACE)], []])
+    screen = getRunningSimulationScreen()
+
+    asyncio.run(screen.run())
+
+    # both frames after the unpause, the last of them the QUIT the fixture ends the run with
+    assert screen.simulation.update.call_count == 3
+    assert screen.simulation.numTicks == 3
+
+
+def test_simulationStillEndsWhenEveryoneDiesWhilePaused(frames):
+    queued, awaited = frames
+    queued.extend([[keyDown(pygame.K_SPACE)]])
+    screen = getSimulationScreen(limitTickSpeed=False)
+    screen.simulation.getNumLivingEntities.return_value = 0
+
+    assert asyncio.run(screen.run()) == ScreenType.RESULTS_SCREEN
+    assert screen._SimulationScreen__paused == False
+
+
+def test_simulationScreenDrawsNothingOnceEveryoneHasDied(frames):
+    queued, awaited = frames
+    queued.extend([[]])
+    screen = getSimulationScreen(limitTickSpeed=False)
+    screen.simulation.getNumLivingEntities.return_value = 0
+
+    asyncio.run(screen.run())
+
+    screen.simulation.environment.getGrid.assert_not_called()
+
+
+def test_simulationScreenShowsStatsOnlyInDebugMode(frames):
+    queued, awaited = frames
+    queued.extend([[], [keyDown(pygame.K_d)], []])
+    screen = getRunningSimulationScreen()
+    getScreenConfig(screen).textSize = 20
+
+    asyncio.run(screen.run())
+
+    labels = [call.args[0] for call in getScreenGraphik(screen).drawText.call_args_list]
+    # of the four frames, all but the one before the key press (the last is the QUIT)
+    assert labels.count("Num Ticks:") == 3
+
+
+def test_endedSimulationRerollsTheGridForTheNextOne(frames):
+    queued, awaited = frames
+    queued.extend([[]])
+    screen = getSimulationScreen(limitTickSpeed=False)
+    screen.simulation.getNumLivingEntities.return_value = 0
+    config = getScreenConfig(screen)
+    config.randomizeGridSizeUponRestart = True
+
+    assert asyncio.run(screen.run()) == ScreenType.RESULTS_SCREEN
+
+    config.randomizeGridSize.assert_called_once_with()
+    config.randomizeGrassGrowTime.assert_called_once_with()
+    config.calculateValues.assert_called_once_with()
+    screen.simulation.cleanup.assert_called_once_with()
+
+
+def getLocalViewScreen(selected, localView=True):
+    screen = getRunningSimulationScreen()
+    getScreenConfig(screen).localView = localView
+    screen._SimulationScreen__selectedEntity = selected
+    screen._SimulationScreen__drawAreaAroundSelectedEntity = MagicMock()
+    screen._SimulationScreen__drawEnvironment = MagicMock()
+    return screen
+
+
+def test_localViewDrawsTheAreaAroundTheSelectedEntity(frames):
+    queued, awaited = frames
+    screen = getLocalViewScreen(MagicMock())
+
+    asyncio.run(screen.run())
+
+    screen._SimulationScreen__drawAreaAroundSelectedEntity.assert_called_once_with()
+    screen._SimulationScreen__drawEnvironment.assert_not_called()
+
+
+def test_localViewFallsBackToTheEnvironmentWithNothingSelected(frames):
+    queued, awaited = frames
+    screen = getLocalViewScreen(None)
+
+    asyncio.run(screen.run())
+
+    screen._SimulationScreen__drawAreaAroundSelectedEntity.assert_not_called()
+    screen._SimulationScreen__drawEnvironment.assert_called_once_with()
+
+
+def test_selectedEntityThatDiedIsDeselectedAndLocalViewEnds(frames):
+    queued, awaited = frames
+    screen = getLocalViewScreen(MagicMock())
+    screen.simulation.environment.isEntityPresent.return_value = False
+
+    asyncio.run(screen.run())
+
+    assert screen._SimulationScreen__selectedEntity is None
+    assert getScreenConfig(screen).localView == False
+
+
+def test_selectedEntityThatLivesStaysSelected(frames):
+    queued, awaited = frames
+    selected = MagicMock()
+    screen = getLocalViewScreen(selected)
+    screen.simulation.environment.isEntityPresent.return_value = True
+
+    asyncio.run(screen.run())
+
+    assert screen._SimulationScreen__selectedEntity == selected
+    assert getScreenConfig(screen).localView == True
