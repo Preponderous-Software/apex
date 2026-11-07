@@ -1,8 +1,9 @@
 name: Tests
 
 # Runs the unit test suite (run_unit_tests.sh) on every pull request and push to main.
-# pygame is the only runtime dependency the tests import; SDL's dummy drivers let it
-# load without a display or sound device.
+# pygame is the only required runtime dependency the tests import; SDL's dummy drivers let
+# it load without a display or sound device. The optional usd-recorder package is installed
+# too, because tests/simulation/test_usdRecording.py is skipped without it.
 
 on:
   pull_request:
@@ -27,7 +28,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install test dependencies
-        run: pip install pygame pytest pytest-cov
+        run: pip install pygame pytest pytest-cov -r requirements-record.txt
 
       - name: Run unit tests
         run: bash run_unit_tests.sh
