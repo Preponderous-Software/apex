@@ -1,18 +1,20 @@
-"""UsdRecording (apex.py --record) against real stages; skipped when the optional
-usd-recorder package (requirements-record.txt) is not installed."""
+"""UsdRecording (apex.py --record) against real stages; those tests are skipped when the
+optional usd-recorder package (requirements-record.txt) is not installed."""
 import sys
 from unittest.mock import MagicMock
 
 import pytest
 
-pytest.importorskip("usd_recorder")
-from pxr import Usd, UsdGeom  # noqa: E402
+import service
+from entity.chicken import Chicken
+from entity.grass import Grass
+from simulation.simulation import Simulation
+from simulation.usdRecording import UsdRecording
 
-import service  # noqa: E402
-from entity.chicken import Chicken  # noqa: E402
-from entity.grass import Grass  # noqa: E402
-from simulation.simulation import Simulation  # noqa: E402
-from simulation.usdRecording import UsdRecording  # noqa: E402
+if UsdRecording.isAvailable():
+    from pxr import Usd, UsdGeom
+
+requiresUsdRecorder = pytest.mark.skipif(not UsdRecording.isAvailable(), reason="usd-recorder is not installed")
 
 # mock pygame (the simulation's SoundService loads sounds)
 service.soundService.pygame = MagicMock()
@@ -35,6 +37,7 @@ def entityPrims(stage):
     return [prim for prim in stage.Traverse() if prim.HasAttribute("recorder:id")]
 
 # tests ------------------------------------------------------------------------
+@requiresUsdRecorder
 def test_recordsEveryEntityAtItsLocationAndLayer(tmp_path):
     simulation = getTestSimulation()
     grass = Grass()
@@ -64,6 +67,7 @@ def test_recordsEveryEntityAtItsLocationAndLayer(tmp_path):
     assert recording.getTicksRecorded() == 1
 
 
+@requiresUsdRecorder
 def test_anEntityRemovedFromTheEnvironmentIsHiddenFromThatTick(tmp_path):
     simulation = getTestSimulation()
     chicken = Chicken("Chicken")
@@ -89,6 +93,7 @@ def test_anEntityRemovedFromTheEnvironmentIsHiddenFromThatTick(tmp_path):
     assert (stage.GetStartTimeCode(), stage.GetEndTimeCode()) == (0, 1)
 
 
+@requiresUsdRecorder
 def test_aGeneratedSimulationRecordsOneTimeCodePerTick(tmp_path):
     simulation = getTestSimulation(gridSize=4)
     simulation.getConfig().numWaterEntities = 2
