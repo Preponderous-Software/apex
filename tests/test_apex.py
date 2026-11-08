@@ -245,3 +245,97 @@ def test_anUnrecognizedScreenQuitsTheApplication(capsys):
     assert "unrecognized screen: no_such_screen" in capsys.readouterr().out
     reporting.close.assert_called_once()
     pygameQuit.assert_called_once()
+
+# command line tests -----------------------------------------------------------
+import runpy  # noqa: E402
+
+import apex as apexModule  # noqa: E402
+from simulation.usdRecording import REQUIREMENTS_HINT  # noqa: E402
+
+
+# Runs src/apex.py as `python3 src/apex.py <arguments>` would, without opening a window, reporting
+# usage or starting a terminal UI: the script's names are re-imported from the modules patched
+# here. Returns the mocks standing in for the usage reporting, the text runner and asyncio.run;
+# the coroutine handed to asyncio.run is closed instead of run.
+def runApexScript(arguments, usdAvailable=True):
+    with patch("sys.argv", ["apex.py"] + arguments), \
+            patch("service.usageReportingService.UsageReportingService") as reportingClass, \
+            patch("textSimulationRunner.TextSimulationRunner") as runnerClass, \
+            patch("ui.gameDisplayFactory.GameDisplayFactory"), \
+            patch("pygame.display.set_icon"), \
+            patch("simulation.usdRecording.UsdRecording.isAvailable", return_value=usdAvailable), \
+            patch("asyncio.run", side_effect=lambda coroutine: coroutine.close()) as asyncioRun:
+        runpy.run_path(apexModule.__file__, run_name="__main__")
+    return reportingClass, runnerClass, asyncioRun
+
+def test_scriptWithoutArgumentsRunsTheWindowedApplicationWithoutRecording():
+    _, runnerClass, asyncioRun = runApexScript([])
+
+    asyncioRun.assert_called_once()
+    coroutine = asyncioRun.call_args.args[0]
+    assert coroutine.__qualname__ == "Apex.run"
+    assert coroutine.cr_frame is None  # closed by the stand-in, never run
+    runnerClass.assert_not_called()
+
+def test_scriptRecordArgumentReachesTheApplication():
+    captured = {}
+
+    def captureApplication(coroutine):
+        captured["recordPath"] = coroutine.cr_frame.f_locals["self"].recordPath
+        coroutine.close()
+
+    with patch("sys.argv", ["apex.py", "--record", "out.usda"]), \
+            patch("service.usageReportingService.UsageReportingService"), \
+            patch("ui.gameDisplayFactory.GameDisplayFactory"), \
+            patch("pygame.display.set_icon"), \
+            patch("simulation.usdRecording.UsdRecording.isAvailable", return_value=True), \
+            patch("asyncio.run", side_effect=captureApplication):
+        runpy.run_path(apexModule.__file__, run_name="__main__")
+
+    assert captured["recordPath"] == "out.usda"
+
+def test_scriptRecordWithoutUsdRecorderExitsWithAHintBeforeStarting():
+    with pytest.raises(SystemExit) as exitInfo:
+        runApexScript(["--record", "out.usda"], usdAvailable=False)
+
+    assert str(exitInfo.value) == "--record needs the optional usd-recorder package: " + REQUIREMENTS_HINT
+
+def test_scriptRecordWithoutUsdRecorderStartsNothing():
+    with patch("service.usageReportingService.UsageReportingService") as reportingClass, \
+            patch("asyncio.run") as asyncioRun, \
+            patch("sys.argv", ["apex.py", "--record", "out.usda"]), \
+            patch("simulation.usdRecording.UsdRecording.isAvailable", return_value=False):
+        with pytest.raises(SystemExit):
+            runpy.run_path(apexModule.__file__, run_name="__main__")
+
+    reportingClass.assert_not_called()  # nothing is reported when the game cannot start
+    asyncioRun.assert_not_called()
+
+def test_scriptTextArgumentRunsTextModeAndExitsCleanly():
+    with pytest.raises(SystemExit) as exitInfo:
+        runApexScript(["--text"])
+
+    assert exitInfo.value.code == 0
+
+def test_scriptTextArgumentStartsTheTextRunnerNotTheWindow():
+    with patch("sys.argv", ["apex.py", "--text"]), \
+            patch("service.usageReportingService.UsageReportingService") as reportingClass, \
+            patch("textSimulationRunner.TextSimulationRunner") as runnerClass, \
+            patch("asyncio.run") as asyncioRun:
+        with pytest.raises(SystemExit):
+            runpy.run_path(apexModule.__file__, run_name="__main__")
+
+    runnerClass.return_value.run.assert_called_once()
+    reportingClass.return_value.reportStartup.assert_called_once()
+    asyncioRun.assert_not_called()
+
+def test_scriptRejectsRecordWithText():
+    with patch("sys.argv", ["apex.py", "--text", "--record", "out.usda"]), \
+            patch("service.usageReportingService.UsageReportingService") as reportingClass, \
+            patch("textSimulationRunner.TextSimulationRunner") as runnerClass:
+        with pytest.raises(SystemExit) as exitInfo:
+            runpy.run_path(apexModule.__file__, run_name="__main__")
+
+    assert str(exitInfo.value) == "--record is not supported with --text"
+    runnerClass.assert_not_called()
+    reportingClass.assert_not_called()
