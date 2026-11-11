@@ -99,7 +99,7 @@ first. `--record` is not available in text mode, and the browser build is unaffe
 [OpenUSD](https://openusd.org) stage, one time code per tick (30 per second), that can be scrubbed in
 usdview, Blender or any USD tool. It needs the optional
 [usd-recorder](https://github.com/Preponderous-Software/usd-recorder) package (Python 3.10 or newer;
-it brings in `usd-core`), which the game does not otherwise need:
+it brings in `usd-core` and `numpy`), which the game does not otherwise need:
 
 ```bash
 pip install -r requirements-record.txt
