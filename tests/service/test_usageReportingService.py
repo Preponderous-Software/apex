@@ -300,7 +300,99 @@ def test_firstRunUnderEnvironmentOptOutSaysReportingIsOff(workdir, capsys, monke
     assert UsageReportingService.NOTICE not in out
     assert out.count(UsageReportingService.NOTICE_OFF_BY_ENVIRONMENT) == 1
     settings = json.loads((workdir / "settings.json").read_text())
-    assert settings["usage_reporting"]["enabled"] is True, "the environment never rewrites the settings file"
+    assert settings["usage_reporting"]["enabled"] is False, "the first run records the environment's opt-out"
+
+
+def test_firstRunUnderEnvironmentOptOutStaysOffWithoutTheVariable(workdir, stub, monkeypatch):
+    # prepare: the first run happens under DO_NOT_TRACK, the second without it
+    monkeypatch.setenv("DO_NOT_TRACK", "1")
+    UsageReportingService().close()
+    monkeypatch.delenv("DO_NOT_TRACK")
+    settings = json.loads((workdir / "settings.json").read_text())
+    settings["usage_reporting"]["endpoint"] = stub.endpoint
+    (workdir / "settings.json").write_text(json.dumps(settings))
+
+    # execute
+    service = UsageReportingService()
+    service.reportStartup()
+    service.close()
+
+    # assert
+    assert service.client.enabled is False
+    assert service.client.disabled_reason == "config"
+    assert not stub.arrived.wait(0.5)
+
+
+@pytest.mark.parametrize("value", ["false", "False", "off", "no", "0", 0, None, "disabled", "flase"])
+def test_enabledThatDoesNotClearlyMeanOnSendsNothing(workdir, stub, value):
+    # prepare: bool("false") and bool("off") are True, which used to report
+    writeSettings(workdir, {"enabled": value, "endpoint": stub.endpoint, "key": "test-key"})
+
+    # execute
+    service = UsageReportingService()
+    service.reportStartup()
+    service.close()
+
+    # assert
+    assert service.client.enabled is False
+    assert service.client.disabled_reason == "config"
+    assert not stub.arrived.wait(0.5)
+    assert not os.path.exists(installIdFile("apex"))
+
+
+@pytest.mark.parametrize("value", ["true", "on", "yes", "1", " TRUE "])
+def test_enabledOnStringReports(workdir, stub, value):
+    # prepare
+    writeSettings(workdir, {"enabled": value, "endpoint": stub.endpoint, "key": "test-key"})
+
+    # execute
+    service = UsageReportingService()
+    service.reportStartup()
+
+    # assert
+    assert stub.arrived.wait(5)
+    assert stub.requests[0]["body"]["name"] == "startup"
+    service.close()
+
+
+@pytest.mark.parametrize("value", [False, "off", "false", 0, None, []])
+def test_usageReportingThatIsNotABlockIsReadAsTheSwitch(workdir, value):
+    # prepare: "usage_reporting": false used to fall back to the defaults (on)
+    (workdir / "settings.json").write_text(json.dumps({"usage_reporting": value}))
+
+    # execute
+    service = UsageReportingService()
+    service.close()
+
+    # assert
+    assert service.client.enabled is False
+    assert json.loads((workdir / "settings.json").read_text()) == {"usage_reporting": value}, "not rewritten"
+
+
+@pytest.mark.parametrize("content", ["[]", "\"off\"", "null", "false"])
+def test_settingsFileThatIsNotAnObjectIsNeitherRewrittenNorReportedFrom(workdir, capsys, content):
+    # prepare: this used to be read as empty, so the first-run block (on) overwrote it
+    (workdir / "settings.json").write_text(content)
+
+    # execute
+    service = UsageReportingService()
+    service.close()
+
+    # assert
+    assert service.client.enabled is False
+    assert (workdir / "settings.json").read_text() == content
+    assert UsageReportingService.NOTICE not in capsys.readouterr().out
+
+
+def test_brokenSettingsFileIsNotRewritten(workdir):
+    # prepare
+    (workdir / "settings.json").write_text("{not json")
+
+    # execute
+    UsageReportingService().close()
+
+    # assert
+    assert (workdir / "settings.json").read_text() == "{not json"
 
 
 # browser build tests --------------------------------------------------------

@@ -123,7 +123,7 @@ the recorded colours.
 ## Usage reporting
 Usage reporting is on by default: Apex sends its name (`apex`), the version from `version.txt` and the events `startup` (when the game starts) and `simulation-started` (when a simulation begins) to [trace](https://danielstephenson.dev/usage-reporting) at `https://trace.danielstephenson.dev`. Each event also carries a random installation ID (the tag `install`) so installations can be counted rather than events; beyond that, nothing about you, your machine, your IP address or the simulation's contents is sent. The reporting happens on a background thread, never blocks the game, and is dropped silently if the service is unreachable.
 
-The first run creates a `settings.json` next to `version.txt` and prints a one-line notice.
+The first run creates a `settings.json` next to `version.txt` and prints a one-line notice. If `TRACE_USAGE_REPORTING` or `DO_NOT_TRACK` already turns reporting off on that first run, the block is written with `"enabled": false`, so reporting stays off on later runs without the variable.
 
 The installation ID is a random UUID kept in `trace-install-id` under the user data directory: `~/.local/share/apex/` on Linux (or `$XDG_DATA_HOME/apex/`), `~/Library/Application Support/apex/` on macOS and `%APPDATA%\apex\` on Windows. It identifies no person, account or address; delete the file to get a new one. Setting the environment variable `TRACE_INSTALL_ID` sends that value instead and leaves the file alone. The file is only created while reporting is on, so every opt-out below also stops it. The browser build never reports, so it has no ID.
 
@@ -139,10 +139,10 @@ To turn reporting off, any one of these is enough:
   }
   ```
 
-- the environment variable `TRACE_USAGE_REPORTING=off` (also `false`, `0`, `no`), which turns off every program that reports to trace
-- the environment variable `DO_NOT_TRACK=1` (see [consoledonottrack.com](https://consoledonottrack.com))
+- the environment variable `TRACE_USAGE_REPORTING=off` (any value other than blank, `true`, `on`, `yes` or `1` counts), which turns off every program that reports to trace
+- the environment variable `DO_NOT_TRACK=1` (any value other than blank, `0`, `false`, `off` or `no` counts; see [consoledonottrack.com](https://consoledonottrack.com))
 
-The environment variables win over `settings.json`. The `usage_reporting.endpoint` and `usage_reporting.key` entries in the same block select where reports go and the key they are sent with.
+Every switch fails closed: `enabled` reports only when it is `true` (or the string `"true"`, `"on"`, `"yes"` or `"1"`); `"false"`, `"off"`, `0`, `null`, a typo or `"usage_reporting": false` all keep reporting off. A `settings.json` that cannot be read or is not a JSON object turns reporting off and is never overwritten. The environment variables win over `settings.json`. The `usage_reporting.endpoint` and `usage_reporting.key` entries in the same block select where reports go and the key they are sent with.
 
 Details: https://danielstephenson.dev/usage-reporting
 
