@@ -142,7 +142,7 @@ To turn reporting off, any one of these is enough:
 - the environment variable `TRACE_USAGE_REPORTING=off` (any value other than blank, `true`, `on`, `yes` or `1` counts), which turns off every program that reports to trace
 - the environment variable `DO_NOT_TRACK=1` (any value other than blank, `0`, `false`, `off` or `no` counts; see [consoledonottrack.com](https://consoledonottrack.com))
 
-Every switch fails closed: `enabled` reports only when it is `true` (or the string `"true"`, `"on"`, `"yes"` or `"1"`); `"false"`, `"off"`, `0`, `null`, a typo or `"usage_reporting": false` all keep reporting off. A `settings.json` that cannot be read or is not a JSON object turns reporting off and is never overwritten. The environment variables win over `settings.json`. The `usage_reporting.endpoint` and `usage_reporting.key` entries in the same block select where reports go and the key they are sent with.
+Every switch fails closed: `enabled` reports only when it is `true` (or the string `"true"`, `"on"`, `"yes"` or `"1"`); `"false"`, `"off"`, `0`, `null`, a typo or `"usage_reporting": false` all keep reporting off. A `settings.json` that cannot be read or is not a JSON object turns reporting off and is never overwritten. The environment variables win over `settings.json`. The `usage_reporting.endpoint` and `usage_reporting.key` entries in the same block select where reports go and the key they are sent with. An opt-out written under another spelling also counts as off: a block named `usage-reporting`, `usageReporting` or `UsageReporting`, an `enable`/`Enabled` switch that is not clearly on, or `"disabled": true`; the first run then writes `"usage_reporting": {"enabled": false}` next to it.
 
 Details: https://danielstephenson.dev/usage-reporting
 

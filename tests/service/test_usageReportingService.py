@@ -395,6 +395,81 @@ def test_brokenSettingsFileIsNotRewritten(workdir):
     assert (workdir / "settings.json").read_text() == "{not json"
 
 
+# near-miss opt-out tests ----------------------------------------------------
+NEAR_MISS_OPT_OUTS = [
+    {"usage-reporting": {"enabled": False}},
+    {"usageReporting": {"enabled": "off"}},
+    {"UsageReporting": {"enabled": "false"}},
+    {"usage-reporting": "off"},
+    {"usage_reporting": {"enable": False}},
+    {"usage_reporting": {"Enabled": "no"}},
+    {"usage_reporting": {"disabled": True}},
+    {"usage_reporting": {"enabled": True, "disabled": "yes"}},
+]
+
+
+@pytest.mark.parametrize("settings", NEAR_MISS_OPT_OUTS)
+def test_anOptOutWrittenUnderANearMissNameIsAnOptOut(workdir, stub, capsys, settings):
+    # prepare: these used to be ignored, so the first-run block (on) was added next to them
+    settings = json.loads(json.dumps(settings))
+    for block in settings.values():
+        if isinstance(block, dict):
+            block.update({"endpoint": stub.endpoint, "key": "test-key"})
+    (workdir / "settings.json").write_text(json.dumps(settings))
+
+    # execute
+    service = UsageReportingService()
+    service.reportStartup()
+    service.close()
+
+    # assert
+    assert service.client.enabled is False
+    assert not stub.arrived.wait(0.5)
+    assert UsageReportingService.NOTICE not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("settings", [
+    {"usage-reporting": {"enabled": True}},
+    {"usageReporting": "on"},
+    {"usage_reporting": {"enabled": True, "enable": "yes"}},
+    {"usage_reporting": {"enabled": True, "disabled": False}},
+    {"usage_reporting": {"enabled": True, "disabled": "no"}},
+])
+def test_nearMissNamesThatSayOnAreNotAnOptOut(workdir, stub, settings):
+    # prepare
+    settings = json.loads(json.dumps(settings))
+    settings.setdefault("usage_reporting", {"enabled": True})
+    settings["usage_reporting"].update({"endpoint": stub.endpoint, "key": "test-key"})
+    (workdir / "settings.json").write_text(json.dumps(settings))
+
+    # execute
+    service = UsageReportingService()
+    service.reportStartup()
+
+    # assert
+    assert stub.arrived.wait(5)
+    service.close()
+
+
+def test_aFirstRunOverANearMissOptOutWritesTheRealSwitchOff(workdir, stub, capsys):
+    # prepare
+    (workdir / "settings.json").write_text(json.dumps({"usage-reporting": {"enabled": False}}))
+
+    # execute
+    UsageReportingService().close()
+    service = UsageReportingService()
+    service.reportStartup()
+    service.close()
+
+    # assert
+    settings = json.loads((workdir / "settings.json").read_text())
+    assert settings["usage_reporting"]["enabled"] is False
+    assert settings["usage-reporting"] == {"enabled": False}, "the operator's block is kept"
+    assert UsageReportingService.NOTICE_OFF_BY_SETTINGS in capsys.readouterr().out
+    assert service.client.enabled is False
+    assert not stub.arrived.wait(0.5)
+
+
 # browser build tests --------------------------------------------------------
 def test_browserBuildNeverReportsWritesNothingAndStartsNoThread(workdir, stub, monkeypatch, capsys):
     # prepare: settings that would report to the stub anywhere else
