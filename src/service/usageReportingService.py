@@ -3,7 +3,7 @@ import json
 import os
 import sys
 
-from lib.tracelib.trace_client import REASON_ENVIRONMENT, TraceClient
+from lib.tracelib.trace_client import REASON_ENVIRONMENT, TraceClient, allows_reporting, environment_opts_out
 
 
 def installIdFile(application):
@@ -43,6 +43,14 @@ class UsageReportingService:
     was added, and a one-line notice is printed exactly that once. Details:
     https://danielstephenson.dev/usage-reporting
 
+    Every switch fails closed: only ``true`` (or the strings ``"true"``,
+    ``"on"``, ``"yes"``, ``"1"``) turns reporting on; ``"false"``, ``"off"``,
+    ``0``, a typo, or a ``usage_reporting`` that is not a block at all leave
+    it off. A settings file that cannot be read, or is not a JSON object, is
+    never rewritten and leaves reporting off. A first run under an
+    environment opt-out records ``"enabled": false``, so the opt-out
+    survives a later run without the variable.
+
     Every call returns immediately and never raises: the network happens on
     a daemon thread owned by the vendored trace client.
     """
@@ -64,7 +72,10 @@ class UsageReportingService:
         "in settings.json, or for every trace-reporting program with the environment variable "
         "TRACE_USAGE_REPORTING=off. Details: " + DETAILS_URL
     )
-    NOTICE_OFF_BY_ENVIRONMENT = "Usage reporting is off (environment). Details: " + DETAILS_URL
+    NOTICE_OFF_BY_ENVIRONMENT = (
+        "Usage reporting is off (environment), and \"usage_reporting\": {\"enabled\": false} "
+        "was written to settings.json so it stays off. Details: " + DETAILS_URL
+    )
 
     def __init__(self, settingsFile=SETTINGS_FILE, versionFile=VERSION_FILE):
         self.settingsFile = settingsFile
@@ -82,9 +93,16 @@ class UsageReportingService:
             settings = self.__loadSettings()
             firstRun = self.SETTINGS_KEY not in settings
             if firstRun:
-                settings[self.SETTINGS_KEY] = self.__defaultBlock()
+                # Under an environment opt-out the first run records "off",
+                # so running once without the variable does not report.
+                settings[self.SETTINGS_KEY] = self.__defaultBlock(enabled=not environment_opts_out())
                 self.__saveSettings(settings)
-            block = settings.get(self.SETTINGS_KEY) or {}
+            block = settings.get(self.SETTINGS_KEY)
+            if not isinstance(block, dict):
+                # "usage_reporting": false (or "off", or anything else that is
+                # not a block) is read as the switch itself, never as "no
+                # block, use the defaults".
+                block = {"enabled": block}
             # Always built through the client, even when settings say off:
             # the client checks TRACE_USAGE_REPORTING / DO_NOT_TRACK first and
             # records why it is off in disabled_reason.
@@ -93,7 +111,9 @@ class UsageReportingService:
                 self.APPLICATION,
                 self.__readVersion() or self.UNKNOWN_VERSION,
                 key=str(block.get("key") or ""),
-                enabled=bool(block.get("enabled", True)),
+                # Not bool(): bool("false") is True. Only true or an "on"
+                # string reports; "false", "off", 0, null or a typo do not.
+                enabled=allows_reporting(block.get("enabled", True)),
                 # The client resolves these only after its own opt-out checks,
                 # so a disabled client never creates the file.
                 install_id=os.environ.get("TRACE_INSTALL_ID"),
@@ -118,9 +138,9 @@ class UsageReportingService:
         self.client.close()
 
     # private methods --------------------------------------------------------
-    def __defaultBlock(self):
+    def __defaultBlock(self, enabled=True):
         return {
-            "enabled": True,
+            "enabled": enabled,
             "endpoint": self.DEFAULT_ENDPOINT,
             "key": self.DEFAULT_KEY,
         }
@@ -130,7 +150,10 @@ class UsageReportingService:
             return {}
         with open(self.settingsFile, "r") as file:
             settings = json.load(file)
-        return settings if isinstance(settings, dict) else {}
+        if not isinstance(settings, dict):
+            # Treating it as empty would rewrite the file with reporting on.
+            raise ValueError("settings.json is not a JSON object")
+        return settings
 
     def __saveSettings(self, settings):
         with open(self.settingsFile, "w") as file:
