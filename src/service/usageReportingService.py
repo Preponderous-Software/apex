@@ -1,6 +1,7 @@
 import atexit
 import json
 import os
+import re
 import sys
 
 from lib.tracelib.trace_client import REASON_ENVIRONMENT, TraceClient, allows_reporting, environment_opts_out
@@ -20,6 +21,43 @@ def installIdFile(application):
     else:
         base = os.environ.get("XDG_DATA_HOME", "").strip() or os.path.join(home, ".local", "share")
     return os.path.join(base, application.lower(), "trace-install-id")
+
+
+def _normaliseKey(key):
+    return re.sub(r"[^a-z0-9]", "", str(key).lower())
+
+
+def hasNearMissOptOut(settings, settingsKey="usage_reporting", switchKey="enabled"):
+    """Whether ``settings`` holds an attempt to turn usage reporting off that
+    is not written exactly as ``settingsKey`` -> ``switchKey``. Such a setting
+    would not be recognised, the first-run block (``enabled: true``) would be
+    written next to it, and reporting would stay on. An operator who wrote
+    any of these did not ask for reporting, so each counts as off:
+
+    - a top-level key that spells "usage reporting" another way
+      (``usage-reporting``, ``usageReporting``, ``UsageReporting``, ...)
+      holding a value, or an ``enabled``-like key, that is not clearly on;
+    - ``"usage_reporting": "off"`` -- a value instead of a block;
+    - inside any such block, a key that spells "enabled" another way
+      (``enable``, ``Enabled``, ...) that is not clearly on, or one that
+      spells "disabled" whose value is on.
+    """
+    for key, value in settings.items():
+        if "usagereport" not in _normaliseKey(key):
+            continue
+        if not isinstance(value, dict):
+            if not allows_reporting(value):
+                return True
+            continue
+        for child, childValue in value.items():
+            if key == settingsKey and child == switchKey:
+                continue  # the switch itself, read by the caller
+            name = _normaliseKey(child)
+            if "disabl" in name and allows_reporting(childValue):
+                return True
+            if "enabl" in name and not allows_reporting(childValue):
+                return True
+    return False
 
 
 # @author Daniel McCoy Stephenson
@@ -49,7 +87,11 @@ class UsageReportingService:
     it off. A settings file that cannot be read, or is not a JSON object, is
     never rewritten and leaves reporting off. A first run under an
     environment opt-out records ``"enabled": false``, so the opt-out
-    survives a later run without the variable.
+    survives a later run without the variable. An opt-out written under
+    another spelling (``usage-reporting``, ``usageReporting``, an
+    ``enable``/``Enabled`` switch, ``disabled: true``) also counts as off,
+    and the first run then records ``"enabled": false`` (see
+    :func:`hasNearMissOptOut`).
 
     Every call returns immediately and never raises: the network happens on
     a daemon thread owned by the vendored trace client.
@@ -76,6 +118,10 @@ class UsageReportingService:
         "Usage reporting is off (environment), and \"usage_reporting\": {\"enabled\": false} "
         "was written to settings.json so it stays off. Details: " + DETAILS_URL
     )
+    NOTICE_OFF_BY_SETTINGS = (
+        "Usage reporting is off (settings.json), and \"usage_reporting\": {\"enabled\": false} "
+        "was written to settings.json so it stays off. Details: " + DETAILS_URL
+    )
 
     def __init__(self, settingsFile=SETTINGS_FILE, versionFile=VERSION_FILE):
         self.settingsFile = settingsFile
@@ -92,10 +138,13 @@ class UsageReportingService:
         try:
             settings = self.__loadSettings()
             firstRun = self.SETTINGS_KEY not in settings
+            # An opt-out written under another spelling counts as off.
+            nearMissOptOut = hasNearMissOptOut(settings, self.SETTINGS_KEY)
             if firstRun:
-                # Under an environment opt-out the first run records "off",
-                # so running once without the variable does not report.
-                settings[self.SETTINGS_KEY] = self.__defaultBlock(enabled=not environment_opts_out())
+                # Under an environment or near-miss opt-out the first run
+                # records "off", so a later run does not report.
+                settings[self.SETTINGS_KEY] = self.__defaultBlock(
+                    enabled=not (environment_opts_out() or nearMissOptOut))
                 self.__saveSettings(settings)
             block = settings.get(self.SETTINGS_KEY)
             if not isinstance(block, dict):
@@ -113,7 +162,7 @@ class UsageReportingService:
                 key=str(block.get("key") or ""),
                 # Not bool(): bool("false") is True. Only true or an "on"
                 # string reports; "false", "off", 0, null or a typo do not.
-                enabled=allows_reporting(block.get("enabled", True)),
+                enabled=allows_reporting(block.get("enabled", True)) and not nearMissOptOut,
                 # The client resolves these only after its own opt-out checks,
                 # so a disabled client never creates the file.
                 install_id=os.environ.get("TRACE_INSTALL_ID"),
@@ -122,6 +171,8 @@ class UsageReportingService:
             if firstRun:
                 if self.client.disabled_reason == REASON_ENVIRONMENT:
                     print(self.NOTICE_OFF_BY_ENVIRONMENT)
+                elif nearMissOptOut:
+                    print(self.NOTICE_OFF_BY_SETTINGS)
                 else:
                     print(self.NOTICE)
         except Exception:
