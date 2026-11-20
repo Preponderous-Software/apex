@@ -45,6 +45,74 @@ class SimulationScreen:
     def getRecording(self):
         return self.__recording
 
+    # The screen's state and actions, for the 3D window (strata_view), which runs the same rules
+    # with its own event loop and drawing: the keys, the click on a location, the colours and the
+    # readouts all come from here, so the two windows cannot drift apart.
+    def isPaused(self):
+        return self.__paused
+
+    def setPaused(self, paused):
+        self.__paused = paused
+
+    def isDebugEnabled(self):
+        return self.__debug
+
+    def getSelectedEntity(self):
+        return self.__selectedEntity
+
+    def setSelectedEntity(self, entity):
+        self.__selectedEntity = entity
+
+    def getTextAlerts(self):
+        return self.__textAlerts
+
+    def getNextScreen(self):
+        return self.__nextScreen
+
+    def isChangingScreen(self):
+        return self.__changeScreen
+
+    def finishScreenChange(self):
+        self.__changeScreen = False
+
+    def requestScreen(self, screenType):
+        self.__nextScreen = screenType
+        self.__changeScreen = True
+
+    def handleKeyDownEvent(self, key):
+        self.__handleKeyDownEvent(key)
+
+    # Shows a location's contents and selects its top living entity, as a click on it does.
+    def selectLocation(self, location):
+        self.__selectLocation(location)
+
+    def getColorOfLocation(self, location):
+        return self.__getColorOfLocation(location)
+
+    def locationContainsLivingEntity(self, location):
+        return self.__locationContainsLivingEntity(location)
+
+    def displayStats(self):
+        self.__displayStats()
+
+    def drawTextAlerts(self):
+        self.__drawTextAlerts()
+
+    # The window title: the simulation's name, its size and whether it is muted.
+    def getCaption(self):
+        caption = "Apex - " + self.simulation.name + " - " + str(self.simulation.environment.getGrid().getColumns()) + "x" + str(self.simulation.environment.getGrid().getRows())
+        if self.__config.muted:
+            caption += " (muted)"
+        return caption
+
+    # Shows the caption (M changes it). The 3D window overrides this.
+    def applyCaption(self, caption):
+        pygame.display.set_caption(caption)
+
+    # Re-creates the display for Config.fullscreen (F11 flips it). The 3D window overrides this.
+    def applyFullscreen(self):
+        self.__initializeGameDisplay()
+
     # Invokes the simulation screen loop. Async so it can run in a browser (pygbag): every wait
     # in it is awaited rather than slept, so the page gets control back once a frame.
     async def run(self):
@@ -134,10 +202,7 @@ class SimulationScreen:
         self.simulation.initializeLocationWidthAndHeight()
 
     def __initializeCaption(self):
-        caption = "Apex - " + self.simulation.name + " - " + str(self.simulation.environment.getGrid().getColumns()) + "x" + str(self.simulation.environment.getGrid().getRows())
-        if self.__config.muted:
-            caption += " (muted)"
-        pygame.display.set_caption(caption)
+        self.applyCaption(self.getCaption())
 
     def __drawVersion(self):
         if os.path.isfile("version.txt"):
@@ -393,7 +458,7 @@ class SimulationScreen:
                 self.__config.fullscreen = False
             else:
                 self.__config.fullscreen = True
-            self.__initializeGameDisplay()
+            self.applyFullscreen()
         if key == pygame.K_m:
             if self.__config.muted:
                 self.__config.muted = False
@@ -418,10 +483,14 @@ class SimulationScreen:
                 
     def __handleMouseClickEvent(self, pos):
         location = self.__retrieveLocationAtMousePosition(pos)
+        self.__selectLocation(location)
+        if location != -1:
+            pygame.display.update()
+
+    def __selectLocation(self, location):
         if location != -1:
             self.__printLocationInfoToConsole(location)
             self.__createTextAlertForLocationInfo(location)
-            pygame.display.update()
             if location.getNumEntities() > 0:
                 topEntity = location.getEntities()[list(location.getEntities().keys())[-1]]
                 if isinstance(topEntity, LivingEntity):

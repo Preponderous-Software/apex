@@ -33,6 +33,27 @@ pip install -r requirements.txt
 ```
 On Windows, run `run.bat` instead of `./run.sh`.
 
+### 3D window (default on Linux and Windows)
+On Linux and Windows, Apex opens in a 3D window drawn with
+[Strata](https://github.com/Preponderous-Software/strata), through graphik's 3D grid view.
+It needs graphik with its `strata` extra (the 3D grid view) and Strata's Python binding:
+```bash
+pip install "strata-engine @ git+https://github.com/Preponderous-Software/strata@v0.7.0#subdirectory=bindings/python"
+python3 src/apex.py
+```
+The first start downloads Strata's library for your system (checked against a pinned SHA-256).
+If the 3D window can't start (the package isn't installed, no graphics driver, macOS), Apex says
+why and opens the 2D window instead; `--strata` insists on 3D and stops with the reason instead.
+`--2d` opens the classic 2D pygame window directly. The 3D window has every screen, button, key
+and readout the 2D one has: the menus are the 2D screens' own buttons, the keys below go through
+the same handler, and a click on a tile shows that location's contents and selects its animal.
+Two window-level differences come from Strata 0.7.0 itself: it can't retitle an open window, so the
+simulation's caption (its size, and "(muted)") is shown in the top-right corner instead, and it
+has no fullscreen switch, so F11 says so rather than going fullscreen. The browser build is
+unchanged (2D).
+
+`tools/strata_snapshot.py --out shots/` renders every screen of the 3D window headless to PNGs.
+
 ## Types of Living Entities
 - Chicken
 - Pig
@@ -75,6 +96,9 @@ l | toggle tick speed limit
 f11 | toggle fullscreen mode
 r | restart
 q | quit (in the browser: end the simulation and show its results)
+click | show a location's contents and select its living entity (global view)
+
+The same keys work in the 2D and 3D windows.
 
 ## Text mode
 `--text` runs the simulation in a terminal instead of a pygame window, no window or sound needed:
