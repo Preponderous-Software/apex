@@ -1,4 +1,4 @@
-from lib.graphiklib.graphik import Graphik
+from preponderous.graphik import Graphik
 
 
 # Graphik, with buttons that also answer a click event rather than only a held mouse button.
@@ -22,7 +22,9 @@ class ClickableGraphik(Graphik):
 
     def drawButton(self, xpos, ypos, width, height, colorBox, colorText, sizeText, text, function):
         click = self.pendingClick
-        if click is not None and xpos + width > click[0] > xpos and ypos + height > click[1] > ypos:
+        # the same clickable region as Graphik.drawButton: exactly the drawn box, so the left and
+        # top edge pixels count and the pixel just past the right or bottom edge does not
+        if click is not None and xpos <= click[0] < xpos + width and ypos <= click[1] < ypos + height:
             self.pendingClick = None
             # drawn as usual, but fired once here rather than again by the held-button check
             super().drawButton(xpos, ypos, width, height, colorBox, colorText, sizeText, text, lambda: None)
