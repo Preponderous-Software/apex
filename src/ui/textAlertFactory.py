@@ -6,7 +6,8 @@ class TextAlertFactory:
         x = location.getX() * simulation.locationWidth
         y = location.getY() * simulation.locationHeight
         numEntities = location.getNumEntities()
-        newAlert = TextAlert(x + 20, y + 100, 20, config.black, 10) 
+        newAlert = TextAlert(x + 20, y + 100, 20, config.black, 10)
+        newAlert.cell = (location.getX(), location.getY())
         newAlert.addLine("Location (" + str(location.getX()) + ", " + str(location.getY()) + ")")
         newAlert.addLine("Number of entities: " + str(numEntities))
         

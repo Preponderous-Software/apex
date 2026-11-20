@@ -48,3 +48,13 @@ def pygameKeyFor(scancode, pygameModule):
     if name is None:
         return None
     return getattr(pygameModule, name)
+
+# The browser's 3D view (web.py) gets its keys from pygame itself, as the 2D
+# canvas does, so it needs no key table; its hint names what a browser has:
+# Q ends the simulation (a tab has nothing to quit to) and F11 is left to the
+# browser.
+WEB_CONTROLS_HINT = (
+    "Space/Esc pause | [ ] tick speed | L speed limit | D statistics | R setup | Q results",
+    "Spawn: C chicken | P pig | K cow | W wolf | F fox | B rabbit",
+    "Tap or click a location for its contents | V local view (Up/Down size) | H oldest | E eyes | M mute",
+)

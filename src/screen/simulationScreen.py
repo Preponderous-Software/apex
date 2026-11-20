@@ -92,8 +92,10 @@ class SimulationScreen:
     def locationContainsLivingEntity(self, location):
         return self.__locationContainsLivingEntity(location)
 
-    def displayStats(self):
-        self.__displayStats()
+    # Draws the statistics with this screen's graphik, or with `graphik` (the browser's 3D view
+    # draws them into a recorder of its own while the 2D screen keeps drawing its board).
+    def displayStats(self, graphik=None):
+        self.__displayStats(graphik)
 
     def drawTextAlerts(self):
         self.__drawTextAlerts()
@@ -350,7 +352,8 @@ class SimulationScreen:
                 self.__textAlerts.remove(textAlert)
 
     # Draws some statistics to the screen, which are updated each tick. This can be laggy.
-    def __displayStats(self):
+    def __displayStats(self, graphik=None):
+        graphik = self.__graphik if graphik is None else graphik
         startingX = 100
         startingY = 10
         text = []
@@ -371,7 +374,7 @@ class SimulationScreen:
         buffer = self.__config.textSize
 
         for i in range(0, len(text)):
-            self.__graphik.drawText(text[i], startingX, startingY + buffer*i, self.__config.textSize, self.__config.black)
+            graphik.drawText(text[i], startingX, startingY + buffer*i, self.__config.textSize, self.__config.black)
 
     def __addStatToText(self, text, key, value):
         text.append(key)

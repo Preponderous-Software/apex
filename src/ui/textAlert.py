@@ -8,6 +8,9 @@ class TextAlert:
         self.size = size
         self.color = color
         self.duration = duration
+        # the (column, row) of the location the alert describes, if it describes one: the 3D views
+        # draw the alert beside that tile wherever their camera shows it
+        self.cell = None
     
     def addLine(self, line):
         self.text.append(line)
