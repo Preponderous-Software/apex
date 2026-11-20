@@ -1,8 +1,9 @@
 """Apex's 3D view in the browser (the arcade's pygbag build).
 
-The browser game is the 2D game, Apex's async screens, and the page's 3D
-toggle (graphik's pygbag template) only changes how it is shown. While the
-toggle is on, WebApex sends what the desktop 3D window draws (strata_view:
+The browser game is the 2D game, Apex's async screens, and the page's 2D/3D
+button (graphik's pygbag template) only changes how it is shown. The page
+starts in 3D, as the desktop does, unless the player chose 2D there before
+or the address says ?view=2d. While 3D is on, WebApex sends what the desktop 3D window draws (strata_view:
 the board, its entities and the HUD over it, and the menu, setup and results
 screens as screen text and buttons) to the page's Strata grid relay through
 graphik's Grid3DWebView. The screens, their rules and their keys stay the 2D
@@ -21,11 +22,16 @@ middle of a simulation, and every 2D control works in 3D:
 The 3D view runs beside the 2D screens as its own task, once a display
 frame: it follows the toggle, reads the relay's input and sends only what
 changed. A 64x64 board's tiles go as merged runs (GridBoard mergeTiles) and
-are sent again only when a tile changes; the entities are sent once a
-simulation step; the HUD when its text does.
+are sent again only when a tile changes; the entities at most once a
+simulation step, and no more often than MIN_STEP_SECONDS, so a fast
+simulation (the speed limit off) isn't slowed down by its own 3D view; the
+HUD when its text does. While the 3D view shows the board, the hidden 2D
+canvas isn't drawn on; it is drawn again when the 2D view comes back.
 
-Nothing of the 3D view is downloaded until the player asks for it, and if it
-can't load the 2D view stays and the toggle says why.
+If the 3D view can't start, the 2D view stays and the page says why; a page
+in 2D downloads nothing of the 3D view until it is asked for. The 3D text
+and buttons keep out from under the page's 2D/3D button (graphik's
+buttonArea()).
 """
 
 import asyncio
@@ -61,8 +67,14 @@ CONTROLS_SECONDS = 8.0
 LAYOUT_MIN_WIDTH, LAYOUT_MIN_HEIGHT = 640, 720
 # A 3D button is at least this big to tap where there is room (touchButtons)
 MIN_TAP = 40
-# the HUD's caption sits below the page's 2D/3D button, top right
-CAPTION_TOP = 52
+# the HUD's caption, top right (moved left of the page's 2D/3D button)
+CAPTION_TOP = 12
+# what is drawn keeps this far from the 2D/3D button
+BUTTON_GAP = 6
+# The board and its entities are rebuilt at most this often (a simulation
+# step with the speed limit off can come every display frame). A key or a
+# press that changes what is shown is drawn at once.
+MIN_STEP_SECONDS = 0.15
 # a camera for screens with no board: only its clear colour shows
 NO_BOARD_CAMERA = Camera(eye=(0.0, 10.0, 10.0), target=(0.0, 0.0, 0.0))
 
@@ -70,17 +82,6 @@ NO_BOARD_CAMERA = Camera(eye=(0.0, 10.0, 10.0), target=(0.0, 0.0, 0.0))
 class BrowserPage:
     """The page around the game under pygbag: its 3D toggle, its size and
     its grid relay (graphik's grid3d.web)."""
-
-    def __init__(self):
-        # The page never scrolls. Without this a phone's browser widens it
-        # once the 3D canvas shows (to fit pygbag's 50000-pixel-wide
-        # measuring element), which pushes the 2D/3D button off screen.
-        try:
-            document = _platformWindow().document
-            for element in (document.documentElement, document.body):
-                element.style.overflow = "hidden"
-        except Exception as error:  # a page without them: nothing to clip
-            print("Page left as it is:", error)
 
     def wants3D(self):
         return grid3dweb.wants3D()
@@ -91,6 +92,10 @@ class BrowserPage:
     def size(self):
         window = _platformWindow()
         return int(window.innerWidth), int(window.innerHeight)
+
+    def buttonArea(self):
+        """Where the page's 2D/3D button is, (x, y, width, height), or None."""
+        return grid3dweb.buttonArea()
 
     def openView(self, width, height):
         return grid3dweb.Grid3DWebView.open(width, height, title=VIEW_TITLE, maxBytes=MAX_3D_BYTES)
@@ -182,13 +187,53 @@ def touchButtons(items, width, minTap=MIN_TAP):
     return out
 
 
+def _overlaps(x, y, width, height, area, gap=BUTTON_GAP):
+    ax, ay, aw, ah = area
+    return x < ax + aw + gap and ax - gap < x + width and y < ay + ah + gap and ay - gap < y + height
+
+
+def clearOfButton(labels, area, windowWidth):
+    """The labels, any under the page's 2D/3D button moved out from under it:
+    to its left where it fits there, else below it."""
+    if area is None:
+        return list(labels)
+    from preponderous.graphik.grid3d import Label, measureText
+
+    ax, ay, aw, ah = area
+    out = []
+    for label in labels:
+        wide = measureText(label.text, label.pixelSize)
+        if not _overlaps(label.x, label.y, wide, label.pixelSize, area):
+            out.append(label)
+        elif ax - BUTTON_GAP - wide >= 8:
+            out.append(Label(label.text, ax - BUTTON_GAP - wide, label.y, label.pixelSize, label.color))
+        else:
+            out.append(Label(label.text, label.x, ay + ah + BUTTON_GAP, label.pixelSize, label.color))
+    return out
+
+
+def buttonsClearOfButton(items, area):
+    """Menu items, any button under the page's 2D/3D button moved below it."""
+    if area is None:
+        return items
+    ax, ay, aw, ah = area
+    return [replace(item, y=ay + ah + BUTTON_GAP)
+            if isinstance(item, UiButton) and _overlaps(item.x, item.y, item.width, item.height, area)
+            else item for item in items]
+
+
 class WebSimulationScreen(SimulationScreen):
     """The 2D simulation screen, counting its simulation's steps, so the 3D
-    view knows when the board has changed."""
+    view knows when the board has changed, and leaving the board to the 3D
+    view while that shows it."""
 
     def __init__(self, graphik, config):
         super().__init__(graphik, config)
         self.steps = 0
+        self.boardIn3D = False
+
+    def isDrawingBoard(self):
+        return not self.boardIn3D
 
     def initializeSimulation(self):
         super().initializeSimulation()
@@ -216,6 +261,8 @@ class WebApex(Apex):
         self.simulationShown = None  # the simulation the controls hint was started for
         self.simulationShownAt = 0.0
         self.frameMs = []
+        self.keepClear = None  # the page's 2D/3D button, (x, y, width, height)
+        self.steppedAt = None  # when the board was last rebuilt for a simulation step
         self.forget3D()
 
     # -- the toggle
@@ -245,16 +292,33 @@ class WebApex(Apex):
             self.page.set3D(False, unavailableMessage(reason))
             print(unavailableMessage(reason))
             return
+        self.readButtonArea()
         self.forget3D()
+
+    def readButtonArea(self):
+        """Where the page's 2D/3D button is now (read on opening and on a
+        resize, as the page lays it out)."""
+        area = getattr(self.page, "buttonArea", None)
+        self.keepClear = area() if area is not None else None
 
     def close3D(self, reason=None):
         """Back to the 2D view; if the 3D view failed, the toggle says why."""
         view, self.view3d = self.view3d, None
         reason = reason or view.failure()
         view.close()
+        self.showBoardIn2D()
         if reason:
             self.page.set3D(False, unavailableMessage(reason))
             print(unavailableMessage(reason))
+
+    def showBoardIn2D(self):
+        """The 2D loop draws the board again, and the hidden canvas is
+        brought up to date now (a paused simulation draws no new step)."""
+        screen = self.simulationScreen
+        if screen.boardIn3D:
+            screen.boardIn3D = False
+            if self.currentScreen is screen:
+                screen.drawBoard()
 
     # -- running beside the 2D screens
 
@@ -277,6 +341,10 @@ class WebApex(Apex):
             self.follow3DToggle()
             if self.view3d is None:
                 return
+            if self.view3d.ready:
+                self.simulationScreen.boardIn3D = True
+            elif self.simulationScreen.boardIn3D:
+                self.showBoardIn2D()  # the 3D view went away while loading again
             self.read3DInput()
             started = time.perf_counter()
             self.draw3D()
@@ -295,6 +363,7 @@ class WebApex(Apex):
         for event in view.pollEvents():
             if event.type == grid3dweb.EVENT_RESIZED and event.width and event.height:
                 view.resize(event.width, event.height)
+                self.readButtonArea()
                 self.forget3D()
             elif event.type == grid3dweb.EVENT_MOUSE_BUTTON_DOWN:
                 self.press((event.x, event.y))
@@ -356,13 +425,14 @@ class WebApex(Apex):
             items = drawScreen(screen, recorder)
         finally:
             screen.graphik = graphik
-        items = touchButtons(scaleItems(items, scale), view.width)
+        items = buttonsClearOfButton(touchButtons(scaleItems(items, scale), view.width), self.keepClear)
         self.menuButtons = [item for item in items if isinstance(item, UiButton)]
         return items
 
     def menuOverlay(self):
         labels, panels = overlayFrom(self.drawMenu())
-        return fitLabels(labels, self.view3d.width), panels
+        width = self.view3d.width
+        return clearOfButton(fitLabels(labels, width), self.keepClear, width), panels
 
     def showScene(self, labels, panels):
         """A screen with no board: the menus, and the simulation once every
@@ -376,13 +446,27 @@ class WebApex(Apex):
                              clearColor=CLEAR_COLOR))
 
     def simulationState(self):
-        """What the board shows changes only with these."""
+        """What the board shows changes only with these: the simulation's
+        steps, and what the player changes (keys, a selection)."""
         screen, config = self.simulationScreen, self.config
         simulation = screen.simulation
         selected = screen.getSelectedEntity()
-        return (id(simulation), screen.steps, simulation.numTicks, len(simulation.entities),
-                config.localView, config.localViewSize, config.highlightOldestEntity,
-                config.eyesEnabled, None if selected is None else selected.getID())
+        # entities come and go with the steps (and the spawn keys, drawn
+        # within MIN_STEP_SECONDS too)
+        steps = (screen.steps, simulation.numTicks, len(simulation.entities))
+        shown = (id(simulation), config.localView, config.localViewSize,
+                 config.highlightOldestEntity, config.eyesEnabled,
+                 None if selected is None else selected.getID())
+        return steps, shown
+
+    def boardDue(self, state):
+        """Whether to rebuild the board now: at once for a change the player
+        made, at most every MIN_STEP_SECONDS for simulation steps alone."""
+        if state == self.sentState:
+            return False
+        if self.sentState is None or state[1] != self.sentState[1]:
+            return True
+        return self.steppedAt is None or self.clock() - self.steppedAt >= MIN_STEP_SECONDS
 
     def drawSimulation(self):
         screen = self.simulationScreen
@@ -398,7 +482,8 @@ class WebApex(Apex):
             self.forget3D()
             self.mode3D = "board"
         state = self.simulationState()
-        if state != self.sentState:
+        if self.boardDue(state):
+            self.steppedAt = self.clock()
             board, pieces = simulationBoard(screen, self.config)
             boardKey = (board.columns, board.rows, board.viewport, board.tiles)
             if boardKey != self.sentBoard:
@@ -446,11 +531,12 @@ class WebApex(Apex):
         MainMenuScreen(version).drawVersion()  # the 2D screens draw it alike
         paused = screen.isPaused()
         showControls = paused or self.clock() - self.simulationShownAt < CONTROLS_SECONDS
-        return simulationHud(
+        labels, panels = simulationHud(
             view.width, view.height, screen.getCaption(), paused,
             statsItems=statsItems, alertItems=alerts.items,
             controls=WEB_CONTROLS_HINT if showControls else (),
             versionItems=scaleItems(version.items, scale), captionTop=CAPTION_TOP)
+        return clearOfButton(labels, self.keepClear, view.width), panels
 
     def alertIn3D(self, alert):
         """A copy of a location alert placed beside its tile as the 3D view

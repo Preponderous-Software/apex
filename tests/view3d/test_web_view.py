@@ -43,7 +43,8 @@ class Clock:
 class Page:
     """The page around the game: a 3D toggle, a size and a grid relay."""
 
-    def __init__(self, size=PHONE, failOpen=None, relayState="ready"):
+    def __init__(self, size=PHONE, failOpen=None, relayState="ready", button=None):
+        self.button = button
         self.on = False
         self.size_ = size
         self.failOpen = failOpen
@@ -60,6 +61,9 @@ class Page:
 
     def size(self):
         return self.size_
+
+    def buttonArea(self):
+        return self.button
 
     def openView(self, width, height):
         if self.failOpen:
@@ -346,6 +350,7 @@ def test_only_what_changed_is_sent(game, page):
     simulation = game.simulationScreen.simulation
     simulation.update()
     simulation.numTicks += 1
+    game.clock.now += web.MIN_STEP_SECONDS
     game.update3D()
     kinds = [grid3dweb.decode(m)[0] for m in page.relay.messages]
     assert grid3dweb.PIECES in kinds
@@ -364,6 +369,7 @@ def test_the_board_follows_the_2d_keys(game, page):
     screen = game.simulationScreen
     page.relay.messages.clear()
     screen.handleKeyDownEvent(pygame.K_c)  # spawn a chicken, even while paused
+    game.clock.now += web.MIN_STEP_SECONDS  # drawn as a step is, within MIN_STEP_SECONDS
     game.update3D()
     assert decoded(page, grid3dweb.PIECES)
     page.relay.messages.clear()
@@ -544,3 +550,101 @@ def test_main_runs_webapex_only_in_a_browser():
 
     assert main["chooseGame"]("linux") is Apex
     assert main["chooseGame"]("emscripten") is WebApex
+
+
+# -- the page's 2D/3D button, which the 3D text and buttons keep clear of
+
+# where graphik's template puts the button on a 390-pixel phone (top right)
+PHONE_BUTTON = (326, 8, 56, 36)
+
+
+def underButton(page, area):
+    x0, y0, w0, h0 = area
+    return [label["text"] for label in lastHud(page)["labels"]
+            if label["x"] < x0 + w0 and x0 < label["x"] + label["pixelSize"] * len(label["text"])
+            and label["y"] < y0 + h0 and y0 < label["y"] + label["pixelSize"]]
+
+
+def test_opening_the_view_and_a_resize_read_where_the_button_is(game, page):
+    page.button = PHONE_BUTTON
+    on3D(game, page)
+    assert game.keepClear == PHONE_BUTTON
+    page.button = (780, 8, 56, 36)
+    page.relay.events.append({"type": grid3dweb.EVENT_RESIZED, "width": 844, "height": 390})
+    game.update3D()
+    assert game.keepClear == (780, 8, 56, 36)
+
+
+@pytest.mark.parametrize("size,button", [(PHONE, PHONE_BUTTON), (PHONE_LANDSCAPE, (780, 8, 56, 36)),
+                                         (DESKTOP, (1216, 8, 56, 36))])
+def test_no_text_or_button_under_the_2d_3d_button(game, page, size, button):
+    page.size_, page.button = size, button
+    on3D(game, page)
+    assert underButton(page, button) == []
+    go(game, ScreenType.SETUP_SCREEN)
+    game.update3D()
+    assert underButton(page, button) == []
+    startSimulation(game)
+    game.simulationScreen.handleKeyDownEvent(pygame.K_d)
+    game.update3D()
+    assert underButton(page, button) == []
+    assert any(text.startswith("Apex - S") for text in texts(page))  # the caption, moved aside
+    go(game, ScreenType.RESULTS_SCREEN)
+    game.update3D()
+    assert underButton(page, button) == []
+    assert fitsWindow(page, size)
+
+
+def test_a_menu_button_under_the_2d_3d_button_moves_below_it():
+    item = UiButton(300, 10, 80, 30, (255, 255, 255), (0, 0, 0), 20, "x", None)
+    (moved,) = web.buttonsClearOfButton([item], PHONE_BUTTON)
+    assert moved.y >= PHONE_BUTTON[1] + PHONE_BUTTON[3]
+
+
+# -- the 2D canvas and a fast simulation
+
+
+def test_the_hidden_2d_canvas_isnt_drawn_on_while_3d_shows_the_board(game, page):
+    startSimulation(game)
+    screen = game.simulationScreen
+    assert screen.isDrawingBoard()
+    on3D(game, page)
+    assert not screen.isDrawingBoard()
+    drawn = []
+    screen.drawBoard = lambda: drawn.append(True)
+    page.on = False
+    game.update3D()
+    # back in 2D: the board is drawn now (a paused simulation draws no new step) and every step
+    assert drawn == [True] and screen.isDrawingBoard()
+
+
+def test_a_3d_view_still_loading_leaves_the_board_to_2d(game, page):
+    page.relay.status = "loading"
+    startSimulation(game)
+    on3D(game, page)
+    assert game.simulationScreen.isDrawingBoard()
+
+
+def test_simulation_steps_rebuild_the_board_at_most_every_min_step_seconds(game, page):
+    startSimulation(game)
+    on3D(game, page)
+    simulation = game.simulationScreen.simulation
+    rebuilt = []
+    original = web.simulationBoard
+    try:
+        web.simulationBoard = lambda *a: rebuilt.append(1) or original(*a)
+        for _ in range(5):  # five steps inside one MIN_STEP_SECONDS: one rebuild at its end
+            simulation.update()
+            simulation.numTicks += 1
+            game.clock.now += web.MIN_STEP_SECONDS / 5 - 1e-6
+            game.update3D()
+        assert len(rebuilt) == 0
+        game.clock.now += 1e-3
+        game.update3D()
+        assert len(rebuilt) == 1
+        # a change the player makes is drawn at once
+        game.simulationScreen.handleKeyDownEvent(pygame.K_e)
+        game.update3D()
+        assert len(rebuilt) == 2
+    finally:
+        web.simulationBoard = original

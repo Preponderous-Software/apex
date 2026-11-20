@@ -3,8 +3,8 @@ The desktop game still starts from src/apex.py (run.sh); both run the same async
 Apex.run.
 
 In a browser the game is WebApex: the same 2D game, which also draws itself in the page's
-3D view when the player turns that on (strata_view/web.py). Its files are downloaded only
-then.
+3D view (strata_view/web.py). The page starts in 3D, as the desktop does, unless the player
+chose 2D (graphik's page template).
 """
 
 import asyncio
@@ -16,7 +16,7 @@ from apex import Apex
 
 
 def chooseGame(platform=None):
-    """The game class to run: WebApex in a browser, so the page's 3D toggle works; Apex
+    """The game class to run: WebApex in a browser, so the page's 2D/3D button works; Apex
     anywhere else, or when graphik's 3D view isn't in the build (then the toggle is marked
     unavailable, with the reason)."""
     platform = sys.platform if platform is None else platform

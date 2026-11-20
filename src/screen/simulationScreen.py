@@ -115,6 +115,25 @@ class SimulationScreen:
     def applyFullscreen(self):
         self.__initializeGameDisplay()
 
+    # Whether the loop draws the board each step. The browser's 3D view turns this off while it
+    # shows the board itself, as the 2D canvas is hidden then, and calls drawBoard() when the 2D
+    # view comes back.
+    def isDrawingBoard(self):
+        return True
+
+    # Draws the board as it is now (black once every living entity is gone), with the
+    # statistics if they are on.
+    def drawBoard(self):
+        self.__graphik.gameDisplay.fill(self.__config.black)
+        if self.simulation.getNumLivingEntities() != 0:
+            if self.__config.localView and self.__selectedEntity != None:
+                self.__drawAreaAroundSelectedEntity()
+            else:
+                self.__drawEnvironment()
+
+            if self.__debug:
+                self.__displayStats()
+
     # Invokes the simulation screen loop. Async so it can run in a browser (pygbag): every wait
     # in it is awaited rather than slept, so the page gets control back once a frame.
     async def run(self):
@@ -135,15 +154,8 @@ class SimulationScreen:
                 self.simulation.update()
                 if self.__recording is not None:
                     self.__recording.recordTick(self.simulation)
-                self.__graphik.gameDisplay.fill(self.__config.black)
-                if self.simulation.getNumLivingEntities() != 0:
-                    if self.__config.localView and self.__selectedEntity != None:
-                        self.__drawAreaAroundSelectedEntity()
-                    else:
-                        self.__drawEnvironment()
-
-                    if self.__debug:
-                        self.__displayStats()
+                if self.isDrawingBoard():
+                    self.drawBoard()
             
             self.__drawTextAlerts()
             
