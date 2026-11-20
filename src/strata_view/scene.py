@@ -159,11 +159,12 @@ def bandedGrass(color):
 def groundColor(location, config):
     """The colour of a location's tile: its water or grass, else bare soil."""
     color = None
-    for entityId in location.getEntities():
-        entity = location.getEntity(entityId)
-        if type(entity) is Water:
+    # read straight from the location's map (a 64x64 grid holds tens of thousands of entities)
+    for entity in location.getEntities().values():
+        kind = type(entity)
+        if kind is Water:
             return entity.getColor()
-        if type(entity) is Grass and color is None:
+        if kind is Grass and color is None:
             color = bandedGrass(entity.getColor())
     return color if color is not None else config.brown
 

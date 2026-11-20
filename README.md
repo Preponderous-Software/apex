@@ -17,11 +17,23 @@ watch. Tapping the results screen returns to setup. The keyboard controls below 
 except that q ends the simulation (showing its results) instead of quitting, and there is no quit
 button, as closing the tab ends the game. Nothing is reported to trace from the browser.
 
+The game starts in 3D, drawn with [Strata](https://github.com/Preponderous-Software/strata), as
+on the desktop (the 3D view, about 1.3 MB, loads alongside the game). The **2D** button in the
+top-right corner switches to the 2D view, and **3D** back, on any screen and in the middle of a
+simulation. It is the same game either way: the 3D menus are the 2D screens' own buttons (made
+big enough to tap on a phone), the keys are the same, and a tap or click on a tile shows that
+location's contents beside it. The browser remembers your choice; `?view=2d` or `?view=3d` in the
+address picks a view for that visit (a 2D visit downloads nothing of the 3D view). Where 3D
+can't run (no WebGL 2, say), the 2D view stays and the page says why.
+
 The browser build is made with [pygbag](https://github.com/pygame-web/pygbag) from `src/`, whose
 `main.py` is its entry point (`python -m pygbag --build src` builds it into `src/build/web`). pygbag packs
 only what is under `src/`, so copy the pinned graphik release in first with
 `python -m pip install --no-deps --target src "$(grep -E '^graphik @ ' requirements.txt)"`, as the workflow does;
-neither `src/build/` nor `src/preponderous/` is committed.
+neither `src/build/` nor `src/preponderous/` is committed. For the 3D view, build with graphik's
+page template (`--template`, its path from `preponderous.graphik.grid3d.web.templatePath()`) and
+copy Strata's grid relay next to the page with
+`python -m preponderous.graphik.grid3d.relay --strata 0.9.0 --dest src/build/web`, as the workflow does.
 `.github/workflows/browser.yml` builds it on every pull request and deploys it. The sounds ship as
 `.ogg` copies alongside the `.wav` files, because a browser build cannot play `.wav`.
 
@@ -49,7 +61,7 @@ the same handler, and a click on a tile shows that location's contents and selec
 One window-level difference comes from Strata itself: it can't retitle an open window, so the
 simulation's caption (its size, and "(muted)") is shown in the top-right corner instead. F11
 switches to fullscreen with Strata 0.8.0 or newer (an older Strata says it can't). The browser
-build is unchanged (2D).
+build has a 3D view too (see "Play in your browser").
 
 `tools/strata_snapshot.py --out shots/` renders every screen of the 3D window headless to PNGs.
 

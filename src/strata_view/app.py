@@ -24,6 +24,7 @@ from service.usageReportingService import UsageReportingService
 from simulation.config import Config
 from simulation.usdRecording import UsdRecording
 from strata_view import StrataUnavailable
+from strata_view.hud import simulationHud
 from strata_view.keys import STRATA_CONTROLS_HINT, pygameKeyFor
 from strata_view.ui import RecordingGraphik, drawScreen
 
@@ -33,11 +34,6 @@ CONTROLS_SECONDS = 8.0
 NOTICE_SECONDS = 4.0
 # The 2D window waits this long on the last frame once every living entity is gone.
 END_HOLD_SECONDS = 1.0
-
-TEXT = (0.97, 0.96, 0.92, 1.0)
-DIM_TEXT = (0.82, 0.80, 0.74, 1.0)
-HUD_PANEL = (0.0, 0.0, 0.0, 0.62)
-
 
 class StrataSimulationScreen(SimulationScreen):
     """The 2D simulation screen, with the window-level effects of M and F11
@@ -296,47 +292,21 @@ class StrataApex:
     def hud(self):
         """Labels and panels over the board: everything the 2D simulation
         screen shows besides the board, and what the 2D window says in its
-        title bar."""
-        from preponderous.graphik.grid3d import Label, Panel, fitText
-        from strata_view.scene import centredLabel, overlayFrom
-
+        title bar (strata_view.hud, shared with the browser's 3D view)."""
         screen = self.simulationScreen
-        # the 2D window's title bar text, top right (the statistics take the top left)
-        caption = fitText(screen.caption, self.width / 2, 14)
-        labels = [Label(caption, self.width - 16 - len(caption) * 14, 12, 14, DIM_TEXT)]
-        panels = []
+        statsItems = []
         if screen.isDebugEnabled():
             self.simulationGraphik.reset()
             screen.displayStats()
-            items = list(self.simulationGraphik.items)
-            statLabels, _ = overlayFrom(items, recolorBlack=(0.97, 0.96, 0.92))
-            if statLabels:
-                left = min(l.x for l in statLabels) - 10
-                right = max(l.x + len(l.text) * l.pixelSize for l in statLabels) + 10
-                top = min(l.y for l in statLabels) - 6
-                bottom = max(l.y + l.pixelSize for l in statLabels) + 6
-                panels.append(Panel(left, top, right - left, bottom - top, HUD_PANEL))
-            labels += statLabels
-        alertLabels, alertPanels = overlayFrom(self.alertItems)
-        labels += alertLabels
-        panels += alertPanels
+            statsItems = list(self.simulationGraphik.items)
         now = self.clock()
-        if screen.isPaused() or now - self.simulationStartedAt < CONTROLS_SECONDS:
-            lines = len(STRATA_CONTROLS_HINT)
-            top = self.height - 40 - 18 * lines
-            panels.append(Panel(8, top - 6, self.width - 16, 18 * lines + 10, HUD_PANEL))
-            for index, line in enumerate(STRATA_CONTROLS_HINT):
-                labels.append(Label(fitText(line, self.width, 11), 16, top + 18 * index, 11, DIM_TEXT))
-        if self.notice and now < self.noticeUntil:
-            labels.append(Label(fitText(self.notice, self.width, 16), 16, 34, 16, TEXT))
-        if screen.isPaused():
-            size = 26
-            width = len("PAUSED") * size + 48
-            panels.append(Panel(self.width / 2 - width / 2, self.height / 2 - 30, width, 60, HUD_PANEL))
-            labels.append(centredLabel("PAUSED", self.width / 2, self.height / 2, size))
-        versionLabels, _ = overlayFrom(self.versionItems())
-        labels += versionLabels
-        return labels, panels
+        showControls = screen.isPaused() or now - self.simulationStartedAt < CONTROLS_SECONDS
+        notice = self.notice if self.notice and now < self.noticeUntil else None
+        return simulationHud(
+            self.width, self.height, screen.caption, screen.isPaused(),
+            statsItems=statsItems, alertItems=self.alertItems,
+            controls=STRATA_CONTROLS_HINT if showControls else (),
+            notice=notice, versionItems=self.versionItems())
 
     def buildScene(self):
         from strata_view.scene import buildSimulationScene, menuScene

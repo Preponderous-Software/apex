@@ -92,8 +92,10 @@ class SimulationScreen:
     def locationContainsLivingEntity(self, location):
         return self.__locationContainsLivingEntity(location)
 
-    def displayStats(self):
-        self.__displayStats()
+    # Draws the statistics with this screen's graphik, or with `graphik` (the browser's 3D view
+    # draws them into a recorder of its own while the 2D screen keeps drawing its board).
+    def displayStats(self, graphik=None):
+        self.__displayStats(graphik)
 
     def drawTextAlerts(self):
         self.__drawTextAlerts()
@@ -112,6 +114,25 @@ class SimulationScreen:
     # Re-creates the display for Config.fullscreen (F11 flips it). The 3D window overrides this.
     def applyFullscreen(self):
         self.__initializeGameDisplay()
+
+    # Whether the loop draws the board each step. The browser's 3D view turns this off while it
+    # shows the board itself, as the 2D canvas is hidden then, and calls drawBoard() when the 2D
+    # view comes back.
+    def isDrawingBoard(self):
+        return True
+
+    # Draws the board as it is now (black once every living entity is gone), with the
+    # statistics if they are on.
+    def drawBoard(self):
+        self.__graphik.gameDisplay.fill(self.__config.black)
+        if self.simulation.getNumLivingEntities() != 0:
+            if self.__config.localView and self.__selectedEntity != None:
+                self.__drawAreaAroundSelectedEntity()
+            else:
+                self.__drawEnvironment()
+
+            if self.__debug:
+                self.__displayStats()
 
     # Invokes the simulation screen loop. Async so it can run in a browser (pygbag): every wait
     # in it is awaited rather than slept, so the page gets control back once a frame.
@@ -133,15 +154,8 @@ class SimulationScreen:
                 self.simulation.update()
                 if self.__recording is not None:
                     self.__recording.recordTick(self.simulation)
-                self.__graphik.gameDisplay.fill(self.__config.black)
-                if self.simulation.getNumLivingEntities() != 0:
-                    if self.__config.localView and self.__selectedEntity != None:
-                        self.__drawAreaAroundSelectedEntity()
-                    else:
-                        self.__drawEnvironment()
-
-                    if self.__debug:
-                        self.__displayStats()
+                if self.isDrawingBoard():
+                    self.drawBoard()
             
             self.__drawTextAlerts()
             
@@ -350,7 +364,8 @@ class SimulationScreen:
                 self.__textAlerts.remove(textAlert)
 
     # Draws some statistics to the screen, which are updated each tick. This can be laggy.
-    def __displayStats(self):
+    def __displayStats(self, graphik=None):
+        graphik = self.__graphik if graphik is None else graphik
         startingX = 100
         startingY = 10
         text = []
@@ -371,7 +386,7 @@ class SimulationScreen:
         buffer = self.__config.textSize
 
         for i in range(0, len(text)):
-            self.__graphik.drawText(text[i], startingX, startingY + buffer*i, self.__config.textSize, self.__config.black)
+            graphik.drawText(text[i], startingX, startingY + buffer*i, self.__config.textSize, self.__config.black)
 
     def __addStatToText(self, text, key, value):
         text.append(key)

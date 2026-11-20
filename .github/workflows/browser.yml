@@ -14,6 +14,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # the Strata release whose grid relay draws the browser's 3D view
+  STRATA_RELAY_VERSION: "0.9.0"
+
 jobs:
   browser:
     runs-on: ubuntu-latest
@@ -42,11 +46,28 @@ jobs:
           python -m pip install --no-deps --target src "$GRAPHIK"
           rm -rf src/*.dist-info
 
+      # graphik's pygbag template is pygbag 0.9.3's default page plus a 2D/3D
+      # button and the Strata grid relay's canvas. It starts in 3D (the
+      # template's default, as on the desktop), loading the relay alongside
+      # the game, and falls back to 2D with the reason if 3D can't start; a
+      # player's choice of 2D is remembered, and ?view=2d starts in 2D
+      # without downloading anything of the 3D view.
       - name: Build with pygbag
-        run: python -m pygbag --build --title Apex src
+        run: |
+          TEMPLATE="$(PYTHONPATH=src python -c 'from preponderous.graphik.grid3d.web import templatePath; print(templatePath())')"
+          python -m pygbag --build --title Apex --template "$TEMPLATE" src
 
       - name: Check the build has an index page
         run: test -f src/build/web/index.html
+
+      # The 3D view's files (Strata's prebuilt grid relay), from Strata's
+      # release, checked against its SHA256SUMS, next to the page. Pinned:
+      # the relay's wire format must match graphik's grid3d.web.
+      - name: Put Strata's grid relay next to the page
+        run: |
+          PYTHONPATH=src python -m preponderous.graphik.grid3d.relay --strata ${{ env.STRATA_RELAY_VERSION }} --dest src/build/web
+          test -f src/build/web/grid-relay.js
+          grep -q 'id="graphik3d"' src/build/web/index.html
 
       - name: Deploy to arcade
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && vars.ARCADE_ENABLED == 'true')
