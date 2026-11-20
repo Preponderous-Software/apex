@@ -15,7 +15,12 @@ Apex also runs in a web browser, phones included, with nothing to install:
 Click or tap the page once to start it, then tap "create new sim" and "start simulation", and
 watch. Tapping the results screen returns to setup. The keyboard controls below work there too,
 except that q ends the simulation (showing its results) instead of quitting, and there is no quit
-button, as closing the tab ends the game. Nothing is reported to trace from the browser.
+button, as closing the tab ends the game. Nothing is reported to trace from the browser. On a
+phone (any touch screen) the simulation's keys are buttons along the bottom of the screen, in the
+2D and the 3D view alike, each pressing the key it names: **Pause**, **Stats**, **Slower**,
+**Faster**, **Limit**, **+Chick**, **+Pig**, **+Cow**, **+Wolf**, **+Fox**, **+Rabbit**,
+**Local**, **Wider**, **Nearer**, **Oldest**, **Eyes**, **Mute**, **Setup** and **End**, with
+**More** paging through them. They show only on a touch screen, below the board, never over it.
 
 The game starts in 3D, drawn with [Strata](https://github.com/Preponderous-Software/strata), as
 on the desktop (the 3D view, about 1.3 MB, loads alongside the game). The **2D** button in the

@@ -115,6 +115,11 @@ class SimulationScreen:
     def applyFullscreen(self):
         self.__initializeGameDisplay()
 
+    # A press, before it is read as a click on a location: True when something else took it (the
+    # browser game's on-screen keys, strata_view/web.py). Nothing does here.
+    def handlePointerDown(self, position):
+        return False
+
     # Whether the loop draws the board each step. The browser's 3D view turns this off while it
     # shows the board itself, as the 2D canvas is hidden then, and calls drawBoard() when the 2D
     # view comes back.
@@ -147,8 +152,11 @@ class SimulationScreen:
                     self.__handleKeyDownEvent(event.key)
                 elif event.type == pygame.VIDEORESIZE:
                     self.simulation.initializeLocationWidthAndHeight()
-                elif event.type == pygame.MOUSEBUTTONDOWN and self.__config.localView == False:
-                    self.__handleMouseClickEvent(event.pos)
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if self.handlePointerDown(event.pos):
+                        pass
+                    elif self.__config.localView == False:
+                        self.__handleMouseClickEvent(event.pos)
             
             if not self.__paused:
                 self.simulation.update()

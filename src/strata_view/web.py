@@ -28,6 +28,17 @@ simulation (the speed limit off) isn't slowed down by its own 3D view; the
 HUD when its text does. While the 3D view shows the board, the hidden 2D
 canvas isn't drawn on; it is drawn again when the 2D view comes back.
 
+On a touch screen (graphik's touchScreen(): a phone, a tablet) the
+simulation's keys - pause, statistics, tick speed and its limit, spawning
+each animal, the local view and its size, highlighting the oldest, eyes,
+mute, back to setup and to the results - are on-screen keys along the bottom
+(graphik's TouchKeys, keys.TOUCH_KEYS; More pages through them), in both
+views: a tap on one posts the key it names to pygame's queue, so the 2D
+simulation screen's own handler does the rest. In 3D the keys are part of
+the HUD and the board is framed above them (the view's insets); in 2D the
+canvas is made taller by the bar's height and the screens draw on the part
+above it (a subsurface), so the bar never covers the board.
+
 If the 3D view can't start, the 2D view stays and the page says why; a page
 in 2D downloads nothing of the 3D view until it is asked for. The 3D text
 and buttons keep out from under the page's 2D/3D button (graphik's
@@ -40,13 +51,16 @@ import time
 import traceback
 from dataclasses import replace
 
+import pygame
+
 from apex import Apex
-from preponderous.graphik.grid3d import Camera, Scene, Unavailable
+from preponderous.graphik import Graphik
+from preponderous.graphik.grid3d import Camera, Scene, TouchKeys, Unavailable
 from preponderous.graphik.grid3d import web as grid3dweb
 from screen.mainMenuScreen import MainMenuScreen
 from screen.simulationScreen import SimulationScreen
 from strata_view.hud import fitLabels, simulationHud
-from strata_view.keys import WEB_CONTROLS_HINT
+from strata_view.keys import TOUCH_CONTROLS_HINT, TOUCH_KEYS, WEB_CONTROLS_HINT
 from strata_view.scene import CLEAR_COLOR, overlayFrom, simulationBoard
 from strata_view.ui import RecordingGraphik, UiButton, UiRect, UiText, drawScreen
 from ui.textAlertDrawTool import TextAlertDrawTool
@@ -71,6 +85,10 @@ MIN_TAP = 40
 CAPTION_TOP = 12
 # what is drawn keeps this far from the 2D/3D button
 BUTTON_GAP = 6
+# On a touch screen the board is framed below the caption and the page's 2D/3D
+# button, and above the keys, the version and the controls line.
+BOARD_TOP = 52
+BOARD_BOTTOM = 66
 # The board and its entities are rebuilt at most this often (a simulation
 # step with the speed limit off can come every display frame). A key or a
 # press that changes what is shown is drawn at once.
@@ -96,6 +114,16 @@ class BrowserPage:
     def buttonArea(self):
         """Where the page's 2D/3D button is, (x, y, width, height), or None."""
         return grid3dweb.buttonArea()
+
+    def touchScreen(self):
+        """Whether the page is on a touch screen, where the simulation shows
+        its on-screen keys."""
+        return grid3dweb.touchScreen()
+
+    def fitCanvas(self):
+        """Has pygbag fit its canvas to the display's new shape (it does so
+        only when the page is resized)."""
+        _platformWindow().eval("window.dispatchEvent(new Event('resize'))")
 
     def openView(self, width, height):
         return grid3dweb.Grid3DWebView.open(width, height, title=VIEW_TITLE, maxBytes=MAX_3D_BYTES)
@@ -227,10 +255,16 @@ class WebSimulationScreen(SimulationScreen):
     view knows when the board has changed, and leaving the board to the 3D
     view while that shows it."""
 
-    def __init__(self, graphik, config):
+    def __init__(self, graphik, config, game=None):
         super().__init__(graphik, config)
         self.steps = 0
         self.boardIn3D = False
+        self.game = game
+
+    def handlePointerDown(self, position):
+        """A press on the 2D bar of on-screen keys is the key's, not a
+        click on a location."""
+        return self.game is not None and self.game.pressTouchKey2D(position)
 
     def isDrawingBoard(self):
         return not self.boardIn3D
@@ -254,8 +288,16 @@ class WebApex(Apex):
         self.page = page if page is not None else BrowserPage()
         self.clock = clock
         self.view3d = None
+        # the simulation's on-screen keys on a touch screen; the 2D window
+        # with the bar below the screens' part, its height, and the Graphik
+        # that draws it (set before Apex makes the display)
+        self.touchKeys = TouchKeys(TOUCH_KEYS)
+        self.touch = self.readTouch()
+        self.screen2D = None
+        self.band2D = 0
+        self.barGraphik = None
         super().__init__()
-        self.simulationScreen = WebSimulationScreen(self.graphik, self.config)
+        self.simulationScreen = WebSimulationScreen(self.graphik, self.config, self)
         self.alertTool = TextAlertDrawTool()
         self.menuButtons = []
         self.simulationShown = None  # the simulation the controls hint was started for
@@ -264,6 +306,91 @@ class WebApex(Apex):
         self.keepClear = None  # the page's 2D/3D button, (x, y, width, height)
         self.steppedAt = None  # when the board was last rebuilt for a simulation step
         self.forget3D()
+
+    # -- the on-screen keys (touch screens)
+
+    def readTouch(self):
+        ask = getattr(self.page, "touchScreen", None)
+        return bool(ask()) if ask is not None else False
+
+    def createGameDisplay(self):
+        """On a touch screen, the 2D window is the screens' size plus the
+        bar of on-screen keys below it; the screens draw on the part above
+        (a subsurface), so the bar never covers the board."""
+        if not self.touch:
+            return super().createGameDisplay()
+        width, height = self.config.displayWidth, self.config.displayHeight
+        pageWidth, pageHeight = self.page.size()
+        self.band2D, _ = self.touchKeys.below(width, height, pageWidth, pageHeight)
+        self.screen2D = pygame.display.set_mode((width, height + self.band2D))
+        self.barGraphik = Graphik(self.screen2D)
+        fit = getattr(self.page, "fitCanvas", None)
+        if fit is not None:
+            try:
+                fit()
+            except Exception as error:  # the canvas keeps its shape
+                print("Warning: could not fit the canvas to the page: " + str(error))
+        return self.screen2D.subsurface((0, 0, width, height))
+
+    def keysShown(self):
+        """The keys are the simulation's: shown while it is on screen."""
+        return self.currentScreen is self.simulationScreen
+
+    def scale2D(self):
+        """(CSS pixels per 2D canvas pixel, portrait) as the page fits the
+        canvas."""
+        pageWidth, pageHeight = self.page.size()
+        width, height = self.screen2D.get_size()
+        return min(pageWidth / float(width), pageHeight / float(height)), pageHeight > pageWidth
+
+    def drawTouchKeys2D(self):
+        """The bar under the 2D screens: the simulation's keys, or empty."""
+        if self.screen2D is None:
+            return
+        width, height = self.screen2D.get_size()
+        self.barGraphik.drawRectangle(0, height - self.band2D, width, self.band2D,
+                                      self.touchKeys.barColor)
+        if self.keysShown():
+            scale, portrait = self.scale2D()
+            self.touchKeys.draw(self.barGraphik, width, height, scale, portrait)
+        pygame.display.update((0, height - self.band2D, width, self.band2D))
+
+    def pressTouchKey2D(self, position):
+        """A press on the 2D bar: its key posted to pygame's queue (or the
+        next page of keys). True when the press was on the bar."""
+        if self.screen2D is None or not self.keysShown():
+            return False
+        width, height = self.screen2D.get_size()
+        scale, portrait = self.scale2D()
+        if self.touchKeys.press(position, width, height, pygame, scale, portrait) is None:
+            return False
+        self.drawTouchKeys2D()
+        return True
+
+    def pressTouchKey3D(self, position):
+        """A press on the 3D view's bar, as pressTouchKey2D."""
+        view = self.view3d
+        if not self.touch or view is None or not self.keysShown():
+            return False
+        return self.touchKeys.press(position, view.width, view.height, pygame) is not None
+
+    def touchBand3D(self):
+        view = self.view3d
+        if not self.touch or view is None or not self.keysShown():
+            return 0
+        return self.touchKeys.bandHeight(view.width, view.height)
+
+    def frameBoard3D(self):
+        """On a touch screen the board stands below the caption and above
+        the keys; elsewhere it is framed as graphik frames it for the
+        window's shape. A new camera is sent at once."""
+        view = self.view3d
+        if self.touch:
+            changed = view.setInsets(top=BOARD_TOP, bottom=self.touchBand3D() + BOARD_BOTTOM)
+        else:
+            changed = view.setInsets()
+        if changed and view.board is not None and self.mode3D == "board":
+            self.sendView()
 
     # -- the toggle
 
@@ -331,6 +458,7 @@ class WebApex(Apex):
 
     async def run3D(self):
         while True:
+            self.drawTouchKeys2D()
             self.update3D()
             await asyncio.sleep(FRAME_SECONDS)
 
@@ -371,7 +499,9 @@ class WebApex(Apex):
     def press(self, position):
         """A click or a tap on the 3D view: what the same press does in 2D."""
         screen = self.currentScreen
-        if screen is self.resultsScreen:
+        if self.pressTouchKey3D(position):
+            pass  # an on-screen key: its key is posted for the screen's handler
+        elif screen is self.resultsScreen:
             screen.switchToSetupScreen()  # anywhere, as in 2D
         elif screen is self.simulationScreen:
             if not self.config.localView:  # 2D ignores clicks in local view
@@ -481,6 +611,7 @@ class WebApex(Apex):
         if self.mode3D != "board":
             self.forget3D()
             self.mode3D = "board"
+        self.frameBoard3D()
         state = self.simulationState()
         if self.boardDue(state):
             self.steppedAt = self.clock()
@@ -519,24 +650,31 @@ class WebApex(Apex):
         view = self.view3d
         screen = self.simulationScreen
         scale = layoutScale(view.width, view.height)
+        # laid out above the on-screen keys, which go on top
+        band = self.touchBand3D()
         statsItems = []
         if screen.isDebugEnabled():
             recorder = RecordingGraphik(view.width, view.height)
             screen.displayStats(recorder)
-            statsItems = compactStats(recorder.items, view.height)
+            statsItems = compactStats(recorder.items, view.height - band)
         alerts = RecordingGraphik(view.width, view.height)
         for alert in screen.getTextAlerts():
             self.alertTool.drawTextAlert(self.alertIn3D(alert), alerts)
-        version = RecordingGraphik(view.width / scale, view.height / scale)
+        version = RecordingGraphik(view.width / scale, (view.height - band) / scale)
         MainMenuScreen(version).drawVersion()  # the 2D screens draw it alike
         paused = screen.isPaused()
         showControls = paused or self.clock() - self.simulationShownAt < CONTROLS_SECONDS
+        hint = TOUCH_CONTROLS_HINT if self.touch else WEB_CONTROLS_HINT
         labels, panels = simulationHud(
-            view.width, view.height, screen.getCaption(), paused,
+            view.width, view.height - band, screen.getCaption(), paused,
             statsItems=statsItems, alertItems=alerts.items,
-            controls=WEB_CONTROLS_HINT if showControls else (),
+            controls=hint if showControls else (),
             versionItems=scaleItems(version.items, scale), captionTop=CAPTION_TOP)
-        return clearOfButton(labels, self.keepClear, view.width), panels
+        labels = clearOfButton(labels, self.keepClear, view.width)
+        if band:
+            keyLabels, keyPanels = self.touchKeys.overlay(view.width, view.height)
+            labels, panels = labels + keyLabels, panels + keyPanels
+        return labels, panels
 
     def alertIn3D(self, alert):
         """A copy of a location alert placed beside its tile as the 3D view

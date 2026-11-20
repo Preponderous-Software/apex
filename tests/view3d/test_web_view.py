@@ -648,3 +648,233 @@ def test_simulation_steps_rebuild_the_board_at_most_every_min_step_seconds(game,
         assert len(rebuilt) == 2
     finally:
         web.simulationBoard = original
+
+
+# -- the on-screen keys on a touch screen (graphik's TouchKeys)
+
+
+class TouchPage(Page):
+    """A phone's page: a touch screen."""
+
+    def __init__(self, size=PHONE, **kwargs):
+        super().__init__(size=size, **kwargs)
+        self.fitted = 0
+
+    def touchScreen(self):
+        return True
+
+    def fitCanvas(self):
+        self.fitted += 1
+
+
+@pytest.fixture
+def phone(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TRACE_USAGE_REPORTING", "off")
+    page = TouchPage()
+    game = WebApex(page=page, clock=Clock())
+    try:
+        yield game, page
+    finally:
+        pygame.quit()
+
+
+def centre(slot):
+    return (slot.x + slot.width / 2.0, slot.y + slot.height / 2.0)
+
+
+def keyEvents():
+    return [e for e in pygame.event.get() if e.type == pygame.KEYDOWN]
+
+
+def tapEveryKey(game, layout, press):
+    """Taps each key of every page of the bar (paging with More); returns the
+    pygame keys posted, in order."""
+    posted = []
+    pygame.event.clear()
+    for _ in range(10):
+        slots = layout()
+        for slot in slots:
+            if slot.key is not None:
+                assert press(centre(slot))
+                posted += [e.key for e in keyEvents()]
+        more = [slot for slot in slots if slot.key is None]
+        if not more:
+            break
+        press(centre(more[0]))
+        if game.touchKeys.page == 0:
+            break
+    return posted
+
+
+def test_the_keys_cover_every_simulation_key_a_browser_has():
+    from strata_view.keys import STRATA_SCANCODE_KEYS, TOUCH_KEYS
+
+    pressed = {"K_" + (name.upper() if len(name) > 1 else name) for _, name in TOUCH_KEYS}
+    pressed = {{"K_[": "K_LEFTBRACKET", "K_]": "K_RIGHTBRACKET"}.get(k, k) for k in pressed}
+    # F11 is the browser's own; Escape pauses as Space does
+    assert pressed == set(STRATA_SCANCODE_KEYS.values()) - {"K_F11", "K_ESCAPE"}
+    pygame.display.init()
+    try:
+        for _, name in TOUCH_KEYS:
+            pygame.key.key_code(name)  # a name pygame knows
+    finally:
+        pygame.display.quit()
+
+
+def test_without_a_touch_screen_there_is_no_bar(game, page):
+    assert game.screen2D is None
+    assert game.graphik.gameDisplay.get_size() == (game.config.displayWidth, game.config.displayHeight)
+    startSimulation(game)
+    on3D(game, page)
+    assert "Pause" not in texts(page)
+    assert game.view3d.insets is None
+
+
+def test_on_a_touch_screen_the_2d_window_has_room_for_the_bar_below_the_screens(phone):
+    game, page = phone
+    width, height = game.config.displayWidth, game.config.displayHeight
+    assert game.graphik.gameDisplay.get_size() == (width, height)
+    assert game.screen2D.get_size() == (width, height + game.band2D)
+    assert page.fitted == 1
+    scale, portrait = game.scale2D()
+    for slot in game.touchKeys.layout(width, height + game.band2D, scale, portrait):
+        assert slot.y >= height
+        assert slot.width * scale >= 44 - 1e-6 and slot.height * scale >= 44 - 1e-6
+
+
+def test_the_2d_bar_shows_the_keys_only_in_the_simulation(phone):
+    game, page = phone
+    width, height = game.screen2D.get_size()
+    game.drawTouchKeys2D()
+    assert not game.pressTouchKey2D((20, height - 30))  # the main menu: no keys
+    startSimulation(game)
+    game.drawTouchKeys2D()
+    scale, portrait = game.scale2D()
+    slot = game.touchKeys.layout(width, height, scale, portrait)[0]
+    assert game.screen2D.get_at((int(slot.x) + 2, int(slot.y) + 2))[:3] == game.touchKeys.color
+
+
+def test_every_2d_key_posts_its_key_and_the_screen_handles_it(phone):
+    from strata_view.keys import TOUCH_KEYS
+
+    game, page = phone
+    startSimulation(game)
+    width, height = game.screen2D.get_size()
+    scale, portrait = game.scale2D()
+    posted = tapEveryKey(
+        game,
+        lambda: game.touchKeys.layout(width, height, scale, portrait),
+        game.simulationScreen.handlePointerDown,
+    )
+    assert posted == [pygame.key.key_code(name) for _, name in TOUCH_KEYS]
+
+
+def test_a_2d_key_runs_the_screens_own_handler(phone):
+    game, page = phone
+    startSimulation(game)
+    screen = game.simulationScreen
+    width, height = game.screen2D.get_size()
+    scale, portrait = game.scale2D()
+    slots = {s.label: s for s in game.touchKeys.layout(width, height, scale, portrait)}
+    pygame.event.clear()
+    assert screen.handlePointerDown(centre(slots["Pause"]))
+    for event in keyEvents():
+        screen.handleKeyDownEvent(event.key)
+    assert screen.isPaused()
+    # a press on the board is still a click on a location
+    assert not screen.handlePointerDown((50, 50))
+
+
+def test_on_a_touch_screen_the_3d_board_stands_above_the_keys(phone):
+    from preponderous.graphik.grid3d import projectToScreen
+
+    game, page = phone
+    startSimulation(game)
+    on3D(game, page)
+    view = game.view3d
+    band = game.touchBand3D()
+    top, bottom = view.insets
+    assert bottom == band + web.BOARD_BOTTOM and top == web.BOARD_TOP
+    camera = view.camera()
+    board = view.board
+    columns, rows = board.shownSize()
+    for x in (-columns / 2.0 - 0.35, columns / 2.0 + 0.35):
+        for z in (-rows / 2.0 - 0.35, rows / 2.0 + 0.35):
+            sx, sy = projectToScreen(camera, (x, -0.18, z), view.width, view.height)
+            assert top - 1 <= sy <= view.height - bottom + 1
+            assert -0.5 <= sx <= view.width + 0.5
+    sent = decoded(page, grid3dweb.VIEW)[-1]
+    assert sent["eye"] == pytest.approx(camera.eye, abs=1e-4)
+    assert sent["clearColor"][:3] == pytest.approx((0.0, 0.0, 0.0))  # the 2D black kept
+
+
+def test_the_3d_hud_carries_the_keys_and_keeps_its_text_above_them(phone):
+    game, page = phone
+    startSimulation(game)
+    on3D(game, page)
+    view = game.view3d
+    keys = {s.label for s in game.touchKeys.layout(view.width, view.height)}
+    assert {"Pause", "Stats", "More"} <= keys
+    shown = texts(page)
+    assert keys <= set(shown)
+    assert "Tap a location for its contents" in shown
+    band = game.touchBand3D()
+    for label in lastHud(page)["labels"]:
+        if label["text"] not in keys:
+            assert label["y"] + label["pixelSize"] <= PHONE[1] - band + 0.5, label["text"]
+    assert fitsWindow(page, PHONE)
+
+
+def test_every_3d_key_posts_its_key(phone):
+    from strata_view.keys import TOUCH_KEYS
+
+    game, page = phone
+    startSimulation(game)
+    on3D(game, page)
+    view = game.view3d
+
+    def press(position):
+        game.press(position)
+        return True
+
+    posted = tapEveryKey(game, lambda: game.touchKeys.layout(view.width, view.height), press)
+    assert posted == [pygame.key.key_code(name) for _, name in TOUCH_KEYS]
+
+
+def test_a_3d_key_tap_is_not_a_press_on_a_tile(phone, monkeypatch):
+    game, page = phone
+    startSimulation(game)
+    on3D(game, page)
+    view = game.view3d
+    selected = []
+    monkeypatch.setattr(game, "selectAt", lambda position: selected.append(position))
+    slot = game.touchKeys.layout(view.width, view.height)[0]
+    game.press(centre(slot))
+    assert selected == []
+    game.press((view.width / 2.0, view.height / 2.0))
+    assert len(selected) == 1
+
+
+def test_the_3d_bar_is_only_on_the_simulation(phone):
+    game, page = phone
+    on3D(game, page)  # the main menu
+    assert "Pause" not in texts(page)
+    go(game, ScreenType.SETUP_SCREEN)
+    game.update3D()
+    assert "Pause" not in texts(page)
+
+
+def test_the_statistics_stay_above_the_keys(phone):
+    game, page = phone
+    startSimulation(game)
+    on3D(game, page)
+    game.simulationScreen.handleKeyDownEvent(pygame.K_d)
+    game.update3D()
+    view = game.view3d
+    keys = {s.label for s in game.touchKeys.layout(view.width, view.height)}
+    band = game.touchBand3D()
+    assert any(text.startswith("Num Ticks:") for text in texts(page))
+    for label in lastHud(page)["labels"]:
+        if label["text"] not in keys:
+            assert label["y"] + label["pixelSize"] <= PHONE[1] - band + 0.5, label["text"]

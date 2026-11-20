@@ -49,6 +49,38 @@ def pygameKeyFor(scancode, pygameModule):
         return None
     return getattr(pygameModule, name)
 
+# The browser's on-screen keys on a touch screen (graphik's TouchKeys), in both
+# views of the simulation: a phone has no keyboard, so every key the 2D
+# simulation screen answers to that a browser keeps has a labelled button,
+# which presses that key (pygame's name for it) so the screen's own handler
+# runs. tests/view3d checks they cover every key above but F11 (the browser's
+# own) and Escape (Space pauses too).
+TOUCH_KEYS = (
+    ("Pause", "space"),
+    ("Stats", "d"),
+    ("Slower", "["),
+    ("Faster", "]"),
+    ("Limit", "l"),
+    ("+Chick", "c"),
+    ("+Pig", "p"),
+    ("+Cow", "k"),
+    ("+Wolf", "w"),
+    ("+Fox", "f"),
+    ("+Rabbit", "b"),
+    ("Local", "v"),
+    ("Wider", "up"),
+    ("Nearer", "down"),
+    ("Oldest", "h"),
+    ("Eyes", "e"),
+    ("Mute", "m"),
+    ("Setup", "r"),
+    ("End", "q"),
+)
+
+# The browser's 3D view on a touch screen: the keys are buttons, so the hint
+# names only what the board itself does.
+TOUCH_CONTROLS_HINT = ("Tap a location for its contents",)
+
 # The browser's 3D view (web.py) gets its keys from pygame itself, as the 2D
 # canvas does, so it needs no key table; its hint names what a browser has:
 # Q ends the simulation (a tab has nothing to quit to) and F11 is left to the
