@@ -109,7 +109,42 @@ def parseArguments(argv=None):
                              "needs the optional usd-recorder package (" + REQUIREMENTS_HINT + ")")
     parser.add_argument("--text", action="store_true",
                         help="run in the terminal (curses) instead of a pygame window")
+    parser.add_argument("--2d", dest="flat", action="store_true",
+                        help="open the classic 2D pygame window instead of the 3D one")
+    parser.add_argument("--strata", action="store_true",
+                        help="insist on the 3D window: stop with the reason if it can't start, "
+                             "instead of opening the 2D window")
     return parser.parse_args(argv)
+
+# Where the 3D window can run: Strata publishes libraries for these only.
+STRATA_PLATFORMS = ("linux", "win32")
+
+# Which interface to start: "text", "2d" or "3d". The 3D window is the default on Linux and
+# Windows desktops; the browser build doesn't come through here (it starts from main.py).
+def chooseInterface(arguments, platform=None):
+    platform = sys.platform if platform is None else platform
+    if arguments.text:
+        return "text"
+    if arguments.flat:
+        return "2d"
+    if arguments.strata or platform in STRATA_PLATFORMS:
+        return "3d"
+    return "2d"
+
+# Runs the 3D window (strata_view). Returns False, having said why, when it can't start and the
+# 2D window should open instead; exits when --strata insisted on 3D.
+def runStrataMode(arguments):
+    from strata_view import StrataUnavailable
+    from strata_view.app import runStrataApex
+    try:
+        runStrataApex(arguments.record)
+        return True
+    except StrataUnavailable as reason:
+        if arguments.strata:
+            sys.exit("The 3D window couldn't start: " + str(reason) + ".")
+        print("The 3D window isn't available here: " + str(reason) + ".\n"
+              "Opening the 2D window instead (--2d skips this check).")
+        return False
 
 # Runs the text UI (--text): a simulation in the terminal, reported to trace the same way as one
 # in the window. No pygame window is opened. curses is imported only here: Python on Windows does
@@ -136,5 +171,7 @@ if __name__ == "__main__":
         sys.exit(0)
     if arguments.record is not None and not UsdRecording.isAvailable():
         sys.exit("--record needs the optional usd-recorder package: " + REQUIREMENTS_HINT)
+    if chooseInterface(arguments) == "3d" and runStrataMode(arguments):
+        sys.exit(0)
     apex = Apex(arguments.record)
     asyncio.run(apex.run())
