@@ -26,7 +26,8 @@ neither `src/build/` nor `src/preponderous/` is committed.
 `.ogg` copies alongside the `.wav` files, because a browser build cannot play `.wav`.
 
 ## Run on your computer
-Install the dependencies (pygame and graphik), then start the game:
+Install the dependencies (pygame, graphik and, on Linux and Windows, Strata's Python binding
+`strata-engine`), then start the game. graphik needs Python 3.9 or newer.
 ```bash
 pip install -r requirements.txt
 ./run.sh
@@ -36,11 +37,9 @@ On Windows, run `run.bat` instead of `./run.sh`.
 ### 3D window (default on Linux and Windows)
 On Linux and Windows, Apex opens in a 3D window drawn with
 [Strata](https://github.com/Preponderous-Software/strata), through graphik's 3D grid view.
-It needs graphik with its `strata` extra (the 3D grid view) and Strata's Python binding:
-```bash
-pip install "strata-engine @ git+https://github.com/Preponderous-Software/strata@v0.8.0#subdirectory=bindings/python"
-python3 src/apex.py
-```
+That view needs Strata's Python binding, `strata-engine` (the package graphik's `strata` extra
+names). `requirements.txt` installs it on Linux and Windows, pinned to the same Strata release,
+so the install above is enough; it is skipped on other systems, which open the 2D window.
 The first start downloads Strata's library for your system (checked against a pinned SHA-256).
 If the 3D window can't start (the package isn't installed, no graphics driver, macOS), Apex says
 why and opens the 2D window instead; `--strata` insists on 3D and stops with the reason instead.
