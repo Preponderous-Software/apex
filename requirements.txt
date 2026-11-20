@@ -1,0 +1,6 @@
+# Runtime dependencies for the pygame window. `--text` mode needs neither.
+pygame
+# graphik draws the pygame screens. Installed from its release tag's source
+# archive (it isn't on PyPI); the browser build installs the same line into
+# src/ (.github/workflows/browser.yml).
+graphik @ https://github.com/Stephenson-Software/graphik/archive/refs/tags/v0.3.0.zip

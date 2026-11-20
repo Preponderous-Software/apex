@@ -1,6 +1,6 @@
 # This class is responsible for drawing text alerts on the screen.
 
-from lib.graphiklib.graphik import Graphik
+from preponderous.graphik import Graphik
 
 
 class TextAlertDrawTool():

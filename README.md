@@ -18,9 +18,20 @@ except that q ends the simulation (showing its results) instead of quitting, and
 button, as closing the tab ends the game. Nothing is reported to trace from the browser.
 
 The browser build is made with [pygbag](https://github.com/pygame-web/pygbag) from `src/`, whose
-`main.py` is its entry point (`python -m pygbag --build src` builds it into `src/build/web`).
+`main.py` is its entry point (`python -m pygbag --build src` builds it into `src/build/web`). pygbag packs
+only what is under `src/`, so copy the pinned graphik release in first with
+`python -m pip install --no-deps --target src "$(grep -E '^graphik @ ' requirements.txt)"`, as the workflow does;
+neither `src/build/` nor `src/preponderous/` is committed.
 `.github/workflows/browser.yml` builds it on every pull request and deploys it. The sounds ship as
 `.ogg` copies alongside the `.wav` files, because a browser build cannot play `.wav`.
+
+## Run on your computer
+Install the dependencies (pygame and graphik), then start the game:
+```bash
+pip install -r requirements.txt
+./run.sh
+```
+On Windows, run `run.bat` instead of `./run.sh`.
 
 ## Types of Living Entities
 - Chicken
@@ -162,7 +173,7 @@ Daniel Stephenson | Creator
 This project is based on [Kreatures](https://github.com/Stephenson-Software/Kreatures) and [Interakt](https://github.com/Stephenson-Software/Interakt).
 
 ## Libraries
-This project makes use of [graphik](https://github.com/Preponderous-Software/graphik) and [py_env_lib](https://github.com/Preponderous-Software/py_env_lib).
+This project makes use of [graphik](https://github.com/Stephenson-Software/graphik), installed from a release tag pinned in `requirements.txt`, and [py_env_lib](https://github.com/Preponderous-Software/py_env_lib), vendored under `src/lib/`.
 
 
 ## Screenshots

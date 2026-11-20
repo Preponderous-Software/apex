@@ -3,7 +3,7 @@ import os
 import sys
 import pygame
 
-from lib.graphiklib.graphik import Graphik
+from preponderous.graphik import Graphik
 from screen.screenType import ScreenType
 from simulation.config import Config
 

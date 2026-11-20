@@ -28,7 +28,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install test dependencies
-        run: pip install pygame pytest pytest-cov -r requirements-record.txt
+        run: pip install pytest pytest-cov -r requirements.txt -r requirements-record.txt
 
       - name: Run unit tests
         run: bash run_unit_tests.sh

@@ -11,7 +11,7 @@ from entity.livingEntity import LivingEntity
 from entity.pig import Pig
 from entity.rabbit import Rabbit
 from entity.wolf import Wolf
-from lib.graphiklib.graphik import Graphik
+from preponderous.graphik import Graphik
 from screen.screenType import ScreenType
 from simulation.config import Config
 from simulation.simulation import Simulation

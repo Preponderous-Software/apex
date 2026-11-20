@@ -38,6 +38,25 @@ def test_aClickBesideTheButtonDoesNotFireIt(graphik):
 
     function.assert_not_called()
 
+@pytest.mark.parametrize("position", [(100, 100), (179, 139)])
+def test_aClickOnTheButtonsEdgeFiresIt(graphik, position):
+    # the first and last drawn pixels of the 80x40 box at (100, 100)
+    function = MagicMock()
+    graphik.registerClick(position)
+
+    drawButton(graphik, function)
+
+    function.assert_called_once()
+
+@pytest.mark.parametrize("position", [(180, 120), (140, 140), (99, 120)])
+def test_aClickJustOutsideTheButtonDoesNotFireIt(graphik, position):
+    function = MagicMock()
+    graphik.registerClick(position)
+
+    drawButton(graphik, function)
+
+    function.assert_not_called()
+
 def test_aClearedClickFiresNothingLater(graphik):
     function = MagicMock()
     graphik.registerClick((140, 120))
