@@ -735,12 +735,50 @@ def test_on_a_touch_screen_the_2d_window_has_room_for_the_bar_below_the_screens(
     game, page = phone
     width, height = game.config.displayWidth, game.config.displayHeight
     assert game.graphik.gameDisplay.get_size() == (width, height)
-    assert game.screen2D.get_size() == (width, height + game.band2D)
+    canvasWidth, canvasHeight = game.screen2D.get_size()
+    # the page's shape, so the browser fits it to the whole phone, as big as before
+    assert canvasWidth == width
+    assert abs(canvasHeight / float(canvasWidth) - PHONE[1] / float(PHONE[0])) < 0.01
     assert page.fitted == 1
+    left, top = game.graphik.gameDisplay.get_abs_offset()
+    assert left == 0 and top > 0 and top + height <= canvasHeight - game.band2D
     scale, portrait = game.scale2D()
-    for slot in game.touchKeys.layout(width, height + game.band2D, scale, portrait):
-        assert slot.y >= height
+    assert abs(scale - PHONE[0] / float(width)) < 1e-9
+    for slot in game.touchKeys.layout(canvasWidth, canvasHeight, scale, portrait):
+        assert slot.y >= top + height
         assert slot.width * scale >= 44 - 1e-6 and slot.height * scale >= 44 - 1e-6
+    # around the screens' part is the bar's colour, not the page's grey
+    assert game.screen2D.get_at((5, top // 2))[:3] == game.touchKeys.barColor
+
+
+@pytest.mark.parametrize("pageSize", [(390, 844), (360, 640), (844, 390), (1024, 768), (1280, 720)])
+def test_fill_page_makes_the_canvas_the_pages_shape_at_the_same_scale(pageSize):
+    width, height, band = 1280, 720, 300
+    canvasWidth, canvasHeight, left, top = web.fillPage(width, height, band, *pageSize)
+    before = min(pageSize[0] / float(width), pageSize[1] / float(height + band))
+    after = min(pageSize[0] / float(canvasWidth), pageSize[1] / float(canvasHeight))
+    assert abs(after - before) < 0.01 * before  # the screens are no smaller
+    assert abs(canvasWidth * pageSize[1] - canvasHeight * pageSize[0]) <= max(pageSize)
+    assert 0 <= left and left + width <= canvasWidth
+    assert 0 <= top and top + height <= canvasHeight - band
+    assert abs(left - (canvasWidth - width - left)) <= 1
+    assert abs(top - (canvasHeight - band - height - top)) <= 1
+
+
+def test_on_a_phone_2d_menu_and_board_taps_land_where_they_are_drawn(phone):
+    game, page = phone
+    left, top = game.graphik.gameDisplay.get_abs_offset()
+    # a menu button: the click is read in the screens' pixels
+    game.graphik.registerClick((left + 640, top + 360))
+    assert game.graphik.pendingClick == (640, 360)
+    # a tile: the location under the tap where the board is drawn
+    startSimulation(game, gridSize=16)
+    screen = game.simulationScreen
+    simulation = screen.simulation
+    column, row = 3, 5
+    at = (left + (column + 0.5) * simulation.locationWidth, top + (row + 0.5) * simulation.locationHeight)
+    screen._SimulationScreen__handleMouseClickEvent(at)
+    assert screen.getTextAlerts()[-1].cell == (column, row)
 
 
 def test_the_2d_bar_shows_the_keys_only_in_the_simulation(phone):

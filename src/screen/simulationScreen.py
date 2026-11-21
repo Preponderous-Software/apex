@@ -16,6 +16,7 @@ from screen.screenType import ScreenType
 from simulation.config import Config
 from simulation.simulation import Simulation
 from ui.gameDisplayFactory import GameDisplayFactory
+from ui.clickableGraphik import surfaceOffset
 from ui.textAlertDrawTool import TextAlertDrawTool
 from ui.textAlertFactory import TextAlertFactory
 
@@ -550,7 +551,9 @@ class SimulationScreen:
         return location
                 
     def __handleMouseClickEvent(self, pos):
-        location = self.__retrieveLocationAtMousePosition(pos)
+        # in the board's pixels: the browser's 2D canvas on a phone draws it below the window's top
+        left, top = surfaceOffset(self.__graphik.gameDisplay)
+        location = self.__retrieveLocationAtMousePosition((pos[0] - left, pos[1] - top))
         self.__selectLocation(location)
         if location != -1:
             pygame.display.update()

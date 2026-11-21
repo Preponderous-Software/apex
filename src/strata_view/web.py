@@ -36,8 +36,10 @@ mute, back to setup and to the results - are on-screen keys along the bottom
 views: a tap on one posts the key it names to pygame's queue, so the 2D
 simulation screen's own handler does the rest. In 3D the keys are part of
 the HUD and the board is framed above them (the view's insets); in 2D the
-canvas is made taller by the bar's height and the screens draw on the part
-above it (a subsurface), so the bar never covers the board.
+canvas is made the page's shape (fillPage), the bar goes along its bottom
+and the screens draw on a part in the middle of the rest (a subsurface), so
+the bar never covers the board and no bands of the page's grey are left
+around a small canvas.
 
 If the 3D view can't start, the 2D view stays and the page says why; a page
 in 2D downloads nothing of the 3D view until it is asked for. The 3D text
@@ -95,6 +97,29 @@ BOARD_BOTTOM = 66
 MIN_STEP_SECONDS = 0.15
 # a camera for screens with no board: only its clear colour shows
 NO_BOARD_CAMERA = Camera(eye=(0.0, 10.0, 10.0), target=(0.0, 0.0, 0.0))
+
+
+def fillPage(width, height, band, pageWidth, pageHeight):
+    """For the 2D screens on a touch screen: (canvasWidth, canvasHeight,
+    left, top). A `width` x `height` window with a `band`-pixel bar of keys
+    under it is a canvas of another shape than a phone's page, so the
+    browser fits it with bands of the page's grey left over (above and below
+    it on a phone held upright). The canvas is made the page's shape
+    instead, as many pixels across (upright) or down (on its side) as
+    before, so the browser fits it at the same scale and it fills the page;
+    the bar goes along its bottom and the screens, at their own size, in
+    the middle of the rest, from (left, top)."""
+    total = height + band
+    if pageWidth <= 0 or pageHeight <= 0:
+        return width, total, 0, 0
+    if pageHeight * width >= pageWidth * total:
+        # taller than the canvas (a phone held upright): fitted by its width
+        canvasWidth = width
+        canvasHeight = max(total, int(width * pageHeight / float(pageWidth)))
+    else:
+        canvasWidth = max(width, int(total * pageWidth / float(pageHeight)))
+        canvasHeight = total
+    return canvasWidth, canvasHeight, (canvasWidth - width) // 2, (canvasHeight - band - height) // 2
 
 
 class BrowserPage:
@@ -314,15 +339,20 @@ class WebApex(Apex):
         return bool(ask()) if ask is not None else False
 
     def createGameDisplay(self):
-        """On a touch screen, the 2D window is the screens' size plus the
-        bar of on-screen keys below it; the screens draw on the part above
-        (a subsurface), so the bar never covers the board."""
+        """On a touch screen, the 2D window is the page's shape (fillPage):
+        the bar of on-screen keys along its bottom, and the screens, at
+        their own size, drawing on a part in the middle of the rest (a
+        subsurface), so the bar never covers the board. Around that part is
+        the bar's colour, not the page's grey. The screens read presses
+        where they draw (ui.clickableGraphik.surfaceOffset)."""
         if not self.touch:
             return super().createGameDisplay()
         width, height = self.config.displayWidth, self.config.displayHeight
         pageWidth, pageHeight = self.page.size()
         self.band2D, _ = self.touchKeys.below(width, height, pageWidth, pageHeight)
-        self.screen2D = pygame.display.set_mode((width, height + self.band2D))
+        canvasWidth, canvasHeight, left, top = fillPage(width, height, self.band2D, pageWidth, pageHeight)
+        self.screen2D = pygame.display.set_mode((canvasWidth, canvasHeight))
+        self.screen2D.fill(self.touchKeys.barColor)
         self.barGraphik = Graphik(self.screen2D)
         fit = getattr(self.page, "fitCanvas", None)
         if fit is not None:
@@ -330,7 +360,7 @@ class WebApex(Apex):
                 fit()
             except Exception as error:  # the canvas keeps its shape
                 print("Warning: could not fit the canvas to the page: " + str(error))
-        return self.screen2D.subsurface((0, 0, width, height))
+        return self.screen2D.subsurface((left, top, width, height))
 
     def keysShown(self):
         """The keys are the simulation's: shown while it is on screen."""

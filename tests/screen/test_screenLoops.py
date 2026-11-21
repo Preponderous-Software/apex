@@ -454,3 +454,24 @@ def test_aLocationAlertWithNoRoomBelowPausedGoesAbove():
     area = pausedArea(1280, 720)
     assert moveAlertClearOf(alert, area, 600)
     assert 0 <= alert.y - alert.size and alert.y - alert.size + 20 * 11 + 20 <= area[1]
+
+
+def test_aButtonOnAnOffsetPartOfTheWindowReadsTheMouseWhereItIsDrawn(monkeypatch):
+    # the browser's 2D canvas on a phone draws the screens below the window's top
+    from ui.clickableGraphik import ClickableGraphik, mouseInSurface, surfaceOffset
+
+    pygame.font.init()
+    pygame.display.init()  # drawButton reads the mouse
+    window = pygame.Surface((1280, 2770))
+    part = window.subsurface((0, 900, 1280, 720))
+    assert surfaceOffset(part) == (0, 900) and surfaceOffset(window) == (0, 0)
+    monkeypatch.setattr(pygame.mouse, "get_pos", lambda: (640, 900 + 360))
+    getPos = pygame.mouse.get_pos
+    with mouseInSurface(part):
+        assert pygame.mouse.get_pos() == (640, 360)
+    assert pygame.mouse.get_pos is getPos
+    fired = []
+    graphik = ClickableGraphik(part)
+    graphik.registerClick((640, 900 + 360))
+    graphik.drawButton(590, 335, 100, 50, (255, 255, 255), (0, 0, 0), 20, "x", lambda: fired.append(1))
+    assert fired == [1]
