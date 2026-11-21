@@ -28,6 +28,8 @@ PAUSED_SIZE = 26
 # the smallest text fitLabels() shrinks to
 MIN_LABEL_SIZE = 8
 EDGE_MARGIN = 8
+# Below this width (a phone held upright) the caption may take the whole width
+NARROW_WIDTH = 640
 
 
 def fitLabels(labels, width, margin=EDGE_MARGIN):
@@ -87,8 +89,17 @@ def simulationHud(width, height, caption, paused, statsItems=(), alertItems=(), 
     window; `notice` a line to show for a while; `captionTop` where the
     caption's top is (the browser keeps its 2D/3D button above it)."""
     # the 2D window's title bar text, top right (the statistics take the top left)
-    caption = fitText(caption, width / 2, CAPTION_SIZE)
-    labels = [Label(caption, width - 16 - len(caption) * CAPTION_SIZE, captionTop, CAPTION_SIZE, DIM_TEXT)]
+    # On a narrow window (a phone) half the width cut it to "Apex - S...", losing the screen and
+    # the grid size; there it may use the whole width, smaller, before anything is cut.
+    captionSize = CAPTION_SIZE
+    if width < NARROW_WIDTH:
+        room = width - 32
+        # fitText keeps an 18-pixel margin each side of what it is given
+        captionSize = max(MIN_LABEL_SIZE, min(CAPTION_SIZE, (room - 36) / float(max(1, len(caption)))))
+        caption = fitText(caption, room, captionSize)
+    else:
+        caption = fitText(caption, width / 2, CAPTION_SIZE)
+    labels = [Label(caption, width - 16 - len(caption) * captionSize, captionTop, captionSize, DIM_TEXT)]
     panels = []
     statLabels, _ = overlayFrom(statsItems, recolorBlack=STATS_TEXT)
     statLabels = fitLabels(statLabels, width)

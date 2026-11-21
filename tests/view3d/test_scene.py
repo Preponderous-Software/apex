@@ -168,3 +168,14 @@ def test_on_a_phone_the_controls_wrap_between_controls_not_inside_them():
         part for part in shown if part in controls]
     assert all(len(line) * CONTROLS_SIZE <= 390 - 32 for line in lines)
 
+
+def test_on_a_phone_the_caption_shrinks_rather_than_losing_the_grid_size():
+    from strata_view.hud import simulationHud
+
+    labels, _ = simulationHud(390, 844, "Apex - Simulation - 28x28", False)
+    caption = labels[0]
+    assert caption.text == "Apex - Simulation - 28x28"
+    assert caption.x >= 8 and caption.x + len(caption.text) * caption.pixelSize <= 390 - 8
+    # a desktop window keeps its size
+    wide, _ = simulationHud(1280, 720, "Apex - Simulation - 28x28", False)
+    assert wide[0].pixelSize == 14 and wide[0].text == "Apex - Simulation - 28x28"
