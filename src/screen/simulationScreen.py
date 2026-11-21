@@ -16,8 +16,45 @@ from screen.screenType import ScreenType
 from simulation.config import Config
 from simulation.simulation import Simulation
 from ui.gameDisplayFactory import GameDisplayFactory
+from ui.clickableGraphik import surfaceOffset
 from ui.textAlertDrawTool import TextAlertDrawTool
 from ui.textAlertFactory import TextAlertFactory
+
+# Under PAUSED: how to carry on, so a held simulation never looks stuck
+PAUSED_HINT = "press Space or Esc to resume"
+# PAUSED (50 points) and its hint (24 points, 45 pixels lower) are centred on the window; a
+# location alert opened while paused keeps out of this much around them
+PAUSED_HALF_WIDTH = 180
+PAUSED_ABOVE = 32
+PAUSED_BELOW = 45 + 16
+ALERT_GAP = 8
+
+
+# The (x, y, width, height) PAUSED and its hint take in a window this size.
+def pausedArea(width, height):
+    return (width / 2 - PAUSED_HALF_WIDTH, height / 2 - PAUSED_ABOVE,
+            2 * PAUSED_HALF_WIDTH, PAUSED_ABOVE + PAUSED_BELOW)
+
+
+# Moves a location alert (drawn by TextAlertDrawTool: a background box from (x - size * 6,
+# y - size), 20 pixels a line plus 20) below `area` (PAUSED's), or above it where there is no
+# room below, when its box would cover it. Returns True when it moved.
+def moveAlertClearOf(textAlert, area, windowHeight, backgroundWidth=250):
+    ax, ay, aw, ah = area
+    left, top = textAlert.x - textAlert.size * 6, textAlert.y - textAlert.size
+    height = 20 * len(textAlert.text) + 20
+    if left >= ax + aw or left + backgroundWidth <= ax or top >= ay + ah or top + height <= ay:
+        return False
+    below = ay + ah + ALERT_GAP
+    above = ay - ALERT_GAP - height
+    if below + height <= windowHeight:
+        top = below
+    elif above >= 0:
+        top = above
+    else:
+        return False
+    textAlert.y = top + textAlert.size
+    return True
 
 # @author Daniel McCoy Stephenson
 class SimulationScreen:
@@ -115,6 +152,11 @@ class SimulationScreen:
     def applyFullscreen(self):
         self.__initializeGameDisplay()
 
+    # A press, before it is read as a click on a location: True when something else took it (the
+    # browser game's on-screen keys, strata_view/web.py). Nothing does here.
+    def handlePointerDown(self, position):
+        return False
+
     # Whether the loop draws the board each step. The browser's 3D view turns this off while it
     # shows the board itself, as the 2D canvas is hidden then, and calls drawBoard() when the 2D
     # view comes back.
@@ -147,8 +189,11 @@ class SimulationScreen:
                     self.__handleKeyDownEvent(event.key)
                 elif event.type == pygame.VIDEORESIZE:
                     self.simulation.initializeLocationWidthAndHeight()
-                elif event.type == pygame.MOUSEBUTTONDOWN and self.__config.localView == False:
-                    self.__handleMouseClickEvent(event.pos)
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if self.handlePointerDown(event.pos):
+                        pass
+                    elif self.__config.localView == False:
+                        self.__handleMouseClickEvent(event.pos)
             
             if not self.__paused:
                 self.simulation.update()
@@ -180,6 +225,7 @@ class SimulationScreen:
             if self.__paused:
                 x, y = self.__graphik.gameDisplay.get_size()
                 self.__graphik.drawText("PAUSED", x/2, y/2, 50, self.__config.black)
+                self.__graphik.drawText(PAUSED_HINT, x/2, y/2 + 45, 24, self.__config.black)
 
             if (self.__config.endSimulationUponAllLivingEntitiesDying):
                 if self.simulation.getNumLivingEntities() == 0:
@@ -357,6 +403,14 @@ class SimulationScreen:
             nextLocation = grid.getDown(nextLocation)
 
     def __drawTextAlerts(self):
+        if self.__paused and self.__textAlerts:
+            # a location opened while paused keeps clear of PAUSED and how to resume (on a phone
+            # the board's middle, where a tap lands, is where they are drawn)
+            width, height = self.__graphik.gameDisplay.get_size()
+            area = pausedArea(width, height)
+            moved = [moveAlertClearOf(textAlert, area, height) for textAlert in self.__textAlerts]
+            if any(moved) and self.isDrawingBoard():
+                self.drawBoard()  # no box is left behind where an alert was drawn before
         for textAlert in list(self.__textAlerts):
             self.__textAlertDrawTool.drawTextAlert(textAlert, self.__graphik)
             textAlert.duration -= 1
@@ -497,7 +551,9 @@ class SimulationScreen:
         return location
                 
     def __handleMouseClickEvent(self, pos):
-        location = self.__retrieveLocationAtMousePosition(pos)
+        # in the board's pixels: the browser's 2D canvas on a phone draws it below the window's top
+        left, top = surfaceOffset(self.__graphik.gameDisplay)
+        location = self.__retrieveLocationAtMousePosition((pos[0] - left, pos[1] - top))
         self.__selectLocation(location)
         if location != -1:
             pygame.display.update()

@@ -33,7 +33,7 @@ class Apex:
         self.usageReporting = UsageReportingService()
         self.usageReporting.reportStartup()
         self.config = Config()
-        gameDisplay = GameDisplayFactory().createGameDisplay(self.config)
+        gameDisplay = self.createGameDisplay()
         self.__setIcon(self.ICON_PATH)
         self.graphik = ClickableGraphik(gameDisplay)
         self.debug = False
@@ -69,6 +69,11 @@ class Apex:
             else:
                 print("unrecognized screen: " + result)
                 self.__quitApplication()
+
+    # The display the screens draw on. The browser game (strata_view/web.py) makes room under it
+    # for its on-screen keys on a touch screen.
+    def createGameDisplay(self):
+        return GameDisplayFactory().createGameDisplay(self.config)
 
     # private methods --------------------------------------------------------
     # Starts recording the simulation that is about to run, if --record was given and the first

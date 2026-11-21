@@ -70,11 +70,14 @@ class SetupScreen:
             self.switchToSimulationScreen,
         )
     
-        self.drawIntegerConfigOptionSetter(x, y, "gridSize", self.config.gridSize, self.decreaseGridSize, self.increaseGridSize)
+        # each setting is named in words, not by its config field: grid size is the tiles along a
+        # side, grass per tile how many grass entities each tile starts with (grassFactor), and
+        # grass regrowth the ticks eaten grass takes to grow back (grassGrowTime)
+        self.drawIntegerConfigOptionSetter(x, y, "grid size", self.config.gridSize, self.decreaseGridSize, self.increaseGridSize)
         
-        self.drawIntegerConfigOptionSetter(x, y - 150, "grassFactor", self.config.grassFactor, self.decreaseGrassFactor, self.increaseGrassFactor)
+        self.drawIntegerConfigOptionSetter(x, y - 150, "grass per tile", self.config.grassFactor, self.decreaseGrassFactor, self.increaseGrassFactor)
         
-        self.drawIntegerConfigOptionSetter(x, y - 300, "grassGrowTime", self.config.grassGrowTime, self.decreaseGrassGrowTime, self.increaseGrassGrowTime)
+        self.drawIntegerConfigOptionSetter(x, y - 300, "grass regrowth (ticks)", self.config.grassGrowTime, self.decreaseGrassGrowTime, self.increaseGrassGrowTime)
     
     def drawIntegerConfigOptionSetter(self, x, y, configOptionName, configOptionValue, decreaseFunction, increaseFunction):
         # given x and y, draw text and buttons next to the text

@@ -202,7 +202,42 @@ def _styles():
     styles["other"] = PieceStyle(shape, size=size, height=height, lift=GROUND_HEIGHT)
     styles["other+eyes"] = PieceStyle(shape, size=size, height=height, lift=GROUND_HEIGHT,
                                       extras=_eyes(size, height))
+    styles[SELECTED_STYLE] = PieceStyle(CUBE, color=SELECTED_COLOR, size=0.98, height=0.01,
+                                        lift=GROUND_HEIGHT, extras=_selectedFrame)
     return styles
+
+
+# A location clicked for its contents is framed while its alert is up, so the
+# box beside the board says which tile it describes
+SELECTED_STYLE = "selected"
+SELECTED_COLOR = (1.0, 1.0, 1.0)
+SELECTED_BAR = 0.1
+
+
+def _selectedFrame(piece, x, z, baseY):
+    """Four raised bars along a selected tile's edges (relative to the piece)."""
+    reach, bar, height = 0.5 - SELECTED_BAR / 2, SELECTED_BAR, 0.3
+    y = baseY + height / 2
+    color = rgba(SELECTED_COLOR)
+    return [
+        Shape(CUBE, (x, y, z - reach), (1.0, height, bar), color),
+        Shape(CUBE, (x, y, z + reach), (1.0, height, bar), color),
+        Shape(CUBE, (x - reach, y, z), (bar, height, 1.0), color),
+        Shape(CUBE, (x + reach, y, z), (bar, height, 1.0), color),
+    ]
+
+
+def selectedPieces(screen, board):
+    """A frame on each location whose alert (a click's contents) is still up
+    and on show."""
+    pieces, seen = [], set()
+    for alert in screen.getTextAlerts():
+        cell = getattr(alert, "cell", None)
+        if cell is None or cell in seen or not board.contains(*cell) or not board.visible(*cell):
+            continue
+        seen.add(cell)
+        pieces.append(Piece((SELECTED_STYLE,) + tuple(cell), cell[0], cell[1], SELECTED_STYLE))
+    return pieces
 
 
 THEME = Theme(
@@ -276,7 +311,7 @@ def simulationBoard(screen, config):
             pieces.append(piece)
     board = GridBoard(grid.getColumns(), grid.getRows(), THEME, tiles=tiles, mergeTiles=True,
                       viewport=viewport)
-    return board, pieces
+    return board, pieces + selectedPieces(screen, board)
 
 
 def boardShapes(screen, config):

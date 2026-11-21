@@ -286,6 +286,10 @@ def test_pausingStopsTheSimulationAndSaysSo(frames):
     assert screen.simulation.numTicks == 0
     config = getScreenConfig(screen)
     getScreenGraphik(screen).drawText.assert_any_call("PAUSED", 640, 360, 50, config.black)
+    # and how to resume, under it
+    from screen.simulationScreen import PAUSED_HINT
+
+    getScreenGraphik(screen).drawText.assert_any_call(PAUSED_HINT, 640, 405, 24, config.black)
 
 
 def test_unpausingResumesTheSimulation(frames):
@@ -400,3 +404,74 @@ def test_selectedEntityThatLivesStaysSelected(frames):
 
     assert screen._SimulationScreen__selectedEntity == selected
     assert getScreenConfig(screen).localView == True
+
+
+def test_aLocationOpenedWhilePausedKeepsClearOfPaused():
+    from screen.simulationScreen import pausedArea
+    from ui.textAlert import TextAlert
+
+    screen = getRunningSimulationScreen()
+    getScreenGraphik(screen).gameDisplay.get_height.return_value = 720
+    getScreenGraphik(screen).gameDisplay.get_width.return_value = 1280
+    screen.setPaused(True)
+    # a tap on the middle of the board, where PAUSED and how to resume are drawn
+    alert = TextAlert(640, 360, 20, (0, 0, 0), 10)
+    for line in ("Location (14, 14)", "Number of entities: 2", "Grass: 1", "Chicken: 1"):
+        alert.addLine(line)
+    screen.getTextAlerts().append(alert)
+
+    screen.drawTextAlerts()
+
+    ax, ay, aw, ah = pausedArea(1280, 720)
+    top = alert.y - alert.size
+    assert top >= ay + ah  # its box starts below them
+    assert top + 20 * len(alert.text) + 20 <= 720
+
+
+def test_aLocationOpenedWhileRunningKeepsItsPlace():
+    from ui.textAlert import TextAlert
+
+    screen = getRunningSimulationScreen()
+    getScreenGraphik(screen).gameDisplay.get_height.return_value = 720
+    getScreenGraphik(screen).gameDisplay.get_width.return_value = 1280
+    alert = TextAlert(640, 360, 20, (0, 0, 0), 10)
+    alert.addLine("Location (14, 14)")
+    screen.getTextAlerts().append(alert)
+
+    screen.drawTextAlerts()
+
+    assert (alert.x, alert.y) == (640, 360)
+
+
+def test_aLocationAlertWithNoRoomBelowPausedGoesAbove():
+    from screen.simulationScreen import moveAlertClearOf, pausedArea
+    from ui.textAlert import TextAlert
+
+    # a short window: under PAUSED there is no room for its eleven lines
+    alert = TextAlert(640, 300, 20, (0, 0, 0), 10)
+    for line in ("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"):
+        alert.addLine(line)
+    area = pausedArea(1280, 720)
+    assert moveAlertClearOf(alert, area, 600)
+    assert 0 <= alert.y - alert.size and alert.y - alert.size + 20 * 11 + 20 <= area[1]
+
+
+def test_aButtonOnAnOffsetPartOfTheWindowReadsTheMouseWhereItIsDrawn(monkeypatch):
+    # the browser's 2D canvas on a phone draws the screens below the window's top
+    from ui.clickableGraphik import ClickableGraphik, mouseInSurface, surfaceOffset
+
+    pygame.font.init()
+    pygame.display.init()  # drawButton reads the mouse
+    window = pygame.Surface((1280, 2770))
+    part = window.subsurface((0, 900, 1280, 720))
+    assert surfaceOffset(part) == (0, 900) and surfaceOffset(window) == (0, 0)
+    monkeypatch.setattr(pygame.mouse, "get_pos", lambda: (640, 900 + 360))
+    getPos = pygame.mouse.get_pos
+    with mouseInSurface(part):
+        assert pygame.mouse.get_pos() == (640, 360)
+    assert pygame.mouse.get_pos is getPos
+    fired = []
+    graphik = ClickableGraphik(part)
+    graphik.registerClick((640, 900 + 360))
+    graphik.drawButton(590, 335, 100, 50, (255, 255, 255), (0, 0, 0), 20, "x", lambda: fired.append(1))
+    assert fired == [1]

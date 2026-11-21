@@ -123,6 +123,10 @@ def test_the_hud_shows_the_statistics_caption_pause_and_version(app):
     for stat in ("Num Ticks:", "Living Entities:", "Grass:", "Rabbits:"):
         assert stat in texts
     assert "PAUSED" in texts
+    # and how to carry on, as the 2D screen says under its PAUSED
+    from screen.simulationScreen import PAUSED_HINT
+
+    assert PAUSED_HINT in texts
 
 
 def test_no_board_once_every_living_entity_is_gone(app):
@@ -150,3 +154,77 @@ def test_every_screen_renders_headless(tmp_path):
             assert path.stat().st_size > 1000
     finally:
         renderer.close()
+
+
+def test_on_a_phone_the_controls_wrap_between_controls_not_inside_them():
+    # wrapped word by word, a line on a phone started with a stray "|" and split
+    # "D statistics" from its key
+    from strata_view.hud import CONTROLS_SIZE, simulationHud
+    from strata_view.keys import WEB_CONTROLS_HINT
+
+    labels, _ = simulationHud(390, 844, "Apex - Simulation - 28x28", False, controls=WEB_CONTROLS_HINT)
+    lines = [label.text for label in labels if label.pixelSize == CONTROLS_SIZE]
+    assert lines and not any(line.startswith("|") or line.endswith("|") for line in lines)
+    controls = [part for line in WEB_CONTROLS_HINT for part in line.split(" | ")]
+    shown = [part for line in lines for part in line.split(" | ")]
+    # every control that fits a line is shown whole (a longer one is word-wrapped)
+    assert [part for part in controls if len(part) * CONTROLS_SIZE <= 390 - 32] == [
+        part for part in shown if part in controls]
+    assert all(len(line) * CONTROLS_SIZE <= 390 - 32 for line in lines)
+
+
+def test_on_a_phone_the_caption_shrinks_rather_than_losing_the_grid_size():
+    from strata_view.hud import simulationHud
+
+    labels, _ = simulationHud(390, 844, "Apex - Simulation - 28x28", False)
+    caption = labels[0]
+    assert caption.text == "Apex - Simulation - 28x28"
+    assert caption.x >= 8 and caption.x + len(caption.text) * caption.pixelSize <= 390 - 8
+    # a desktop window keeps its size
+    wide, _ = simulationHud(1280, 720, "Apex - Simulation - 28x28", False)
+    assert wide[0].pixelSize == 14 and wide[0].text == "Apex - Simulation - 28x28"
+
+
+def test_a_clicked_location_is_framed_while_its_alert_is_up(app):
+    # the alert box sits beside the board; without a mark on the tile it was
+    # a guess which tile it described
+    screen = app.simulationScreen
+    grid = screen.simulation.environment.getGrid()
+    screen.selectLocation(grid.getLocationByCoordinates(3, 4))
+    board, pieces = scene.simulationBoard(screen, app.config)
+    framed = [p for p in pieces if p.style == scene.SELECTED_STYLE]
+    assert [(p.column, p.row) for p in framed] == [(3, 4)]
+    shapes, _ = board.pieceShapes(framed)
+    assert len(shapes) == 5  # a slab and four raised edges
+    screen.getTextAlerts().clear()
+    _, pieces = scene.simulationBoard(screen, app.config)
+    assert not [p for p in pieces if p.style == scene.SELECTED_STYLE]
+
+
+def test_beside_the_browsers_button_the_caption_fits_the_room_left_of_it():
+    from strata_view.hud import simulationHud
+
+    caption = "Apex - Simulation - 28x28"
+    for right in (332, 284):  # left of 0.5.2's button, and of 0.5.3's wider one
+        labels, _ = simulationHud(390, 844, caption, False, captionRight=right)
+        assert labels[0].text == caption
+        assert labels[0].x >= 8 and labels[0].x + len(caption) * labels[0].pixelSize <= right + 1e-6
+    # a desktop window keeps its size, right-aligned as before
+    wide, _ = simulationHud(1280, 720, caption, False)
+    assert wide[0].pixelSize == 14 and wide[0].x == 1280 - 16 - len(caption) * 14
+
+
+def test_a_location_alert_over_the_paused_box_moves_below_it():
+    from strata_view.hud import alertsClearOf
+    from strata_view.ui import UiRect, UiText
+
+    area = (70, 392, 250, 86)
+    items = [UiRect(80, 400, 250, 80, (255, 255, 255)), UiText("Location (1, 2)", 200, 420, 20, (0, 0, 0))]
+    rect, text = alertsClearOf(items, area, 844)
+    assert rect.y >= 392 + 86 and text.y - rect.y == 20
+    # no room below: above it
+    rect, _ = alertsClearOf(items, area, 500)
+    assert rect.y + rect.height <= 392
+    # clear already: left alone
+    clear = [UiRect(80, 100, 250, 80, (255, 255, 255))]
+    assert alertsClearOf(clear, area, 844) == clear
