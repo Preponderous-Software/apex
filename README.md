@@ -4,7 +4,9 @@
 
 This game allows you to manage a virtual environment containing entities that depend on each other as sources of energy. A food chain arises from the configuration of various entities and their specified diets.
 
-<img src="pics/screenshot4.PNG" alt="screenshot" width="720"/>
+<img src="pics/3d-hero.png" alt="Apex in 3D in the browser: a 28 by 28 grid of green and water tiles on a wooden board, seen from above at an angle, with the animals standing on it as small shapes and plants and berries between them" width="720"/>
+
+<sub>A simulation a few ticks in, drawn in 3D by [Strata](https://github.com/Preponderous-Software/strata) in the browser build ([play it](https://apex.play.danielstephenson.dev)). The classic 2D window is still there: see [Screenshots](#screenshots).</sub>
 
 ## Play in your browser
 Apex also runs in a web browser, phones included, with nothing to install:
@@ -41,6 +43,22 @@ copy Strata's grid relay next to the page with
 `python -m preponderous.graphik.grid3d.relay --strata 0.9.0 --dest src/build/web`, as the workflow does.
 `.github/workflows/browser.yml` builds it on every pull request and deploys it. The sounds ship as
 `.ogg` copies alongside the `.wav` files, because a browser build cannot play `.wav`.
+
+### Play in 3D or 2D
+- **3D** (the default): https://apex.play.danielstephenson.dev
+- **2D**: https://apex.play.danielstephenson.dev/?view=2d
+
+The **2D**/**3D** button in the top-right corner switches between them at any time, and the
+browser remembers the choice; `?view=2d` or `?view=3d` picks a view for one visit.
+
+<img src="pics/3d-play.gif" alt="A 20 by 20 Apex simulation running in 3D in the browser, as a time-lapse: the animals move from tile to tile and hunt and eat until mostly wolves are left, and excrement shows up as orange tiles" width="720"/>
+
+<sub>A real run of the browser build in 3D at a desktop window size (1280x800), about 180 ticks
+shown as a time-lapse (one frame every few ticks).</sub>
+
+<img src="pics/3d-phone.png" alt="A simulation in 3D on a phone held upright: the board across the width of the screen, the controls listed under it and the 2D/3D button in the top-right corner" width="300"/>
+
+<sub>The 3D view on a phone (390x844).</sub>
 
 ## Run on your computer
 Install the dependencies (pygame, graphik and, on Linux and Windows, Strata's Python binding
@@ -218,6 +236,9 @@ This project makes use of [graphik](https://github.com/Stephenson-Software/graph
 
 ## Screenshots
 
+The 2D window:
+
+<img src="pics/screenshot4.PNG" alt="screenshot" width="720"/>
 <img src="pics/screenshot2.PNG" alt="screenshot2" width="400"/>
 <img src="pics/screenshot3.PNG" alt="screenshot3" width="400"/>
 
