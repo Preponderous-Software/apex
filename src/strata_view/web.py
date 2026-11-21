@@ -59,7 +59,7 @@ from preponderous.graphik.grid3d import Camera, Scene, TouchKeys, Unavailable
 from preponderous.graphik.grid3d import web as grid3dweb
 from screen.mainMenuScreen import MainMenuScreen
 from screen.simulationScreen import SimulationScreen
-from strata_view.hud import fitLabels, simulationHud
+from strata_view.hud import CAPTION_SIZE, fitLabels, simulationHud
 from strata_view.keys import TOUCH_CONTROLS_HINT, TOUCH_KEYS, WEB_CONTROLS_HINT
 from strata_view.scene import CLEAR_COLOR, overlayFrom, simulationBoard
 from strata_view.ui import RecordingGraphik, UiButton, UiRect, UiText, drawScreen
@@ -659,7 +659,8 @@ class WebApex(Apex):
             recorder = RecordingGraphik(view.width, view.height)
             screen.displayStats(recorder)
             statsItems = compactStats(recorder.items, view.height - band)
-        alerts = RecordingGraphik(view.width, view.height)
+        # kept above the on-screen keys, as the rest of the HUD is
+        alerts = RecordingGraphik(view.width, view.height - band)
         for alert in screen.getTextAlerts():
             self.alertTool.drawTextAlert(self.alertIn3D(alert), alerts)
         version = RecordingGraphik(view.width / scale, (view.height - band) / scale)
@@ -671,12 +672,24 @@ class WebApex(Apex):
             view.width, view.height - band, screen.getCaption(), paused,
             statsItems=statsItems, alertItems=alerts.items,
             controls=hint if showControls else (),
-            versionItems=scaleItems(version.items, scale), captionTop=CAPTION_TOP)
+            versionItems=scaleItems(version.items, scale), captionTop=CAPTION_TOP,
+            captionRight=self.captionRight())
         labels = clearOfButton(labels, self.keepClear, view.width)
         if band:
             keyLabels, keyPanels = self.touchKeys.overlay(view.width, view.height)
             labels, panels = labels + keyLabels, panels + keyPanels
         return labels, panels
+
+    def captionRight(self):
+        """Where the caption must end to stay left of the page's 2D/3D button
+        (when the button is on the caption's line), or None."""
+        area = self.keepClear
+        if area is None:
+            return None
+        ax, ay, aw, ah = area
+        if ay >= CAPTION_TOP + CAPTION_SIZE or ay + ah <= CAPTION_TOP:
+            return None
+        return ax - BUTTON_GAP
 
     def alertIn3D(self, alert):
         """A copy of a location alert placed beside its tile as the 3D view

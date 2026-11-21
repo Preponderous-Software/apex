@@ -199,3 +199,32 @@ def test_a_clicked_location_is_framed_while_its_alert_is_up(app):
     screen.getTextAlerts().clear()
     _, pieces = scene.simulationBoard(screen, app.config)
     assert not [p for p in pieces if p.style == scene.SELECTED_STYLE]
+
+
+def test_beside_the_browsers_button_the_caption_fits_the_room_left_of_it():
+    from strata_view.hud import simulationHud
+
+    caption = "Apex - Simulation - 28x28"
+    for right in (332, 284):  # left of 0.5.2's button, and of 0.5.3's wider one
+        labels, _ = simulationHud(390, 844, caption, False, captionRight=right)
+        assert labels[0].text == caption
+        assert labels[0].x >= 8 and labels[0].x + len(caption) * labels[0].pixelSize <= right + 1e-6
+    # a desktop window keeps its size, right-aligned as before
+    wide, _ = simulationHud(1280, 720, caption, False)
+    assert wide[0].pixelSize == 14 and wide[0].x == 1280 - 16 - len(caption) * 14
+
+
+def test_a_location_alert_over_the_paused_box_moves_below_it():
+    from strata_view.hud import alertsClearOf
+    from strata_view.ui import UiRect, UiText
+
+    area = (70, 392, 250, 86)
+    items = [UiRect(80, 400, 250, 80, (255, 255, 255)), UiText("Location (1, 2)", 200, 420, 20, (0, 0, 0))]
+    rect, text = alertsClearOf(items, area, 844)
+    assert rect.y >= 392 + 86 and text.y - rect.y == 20
+    # no room below: above it
+    rect, _ = alertsClearOf(items, area, 500)
+    assert rect.y + rect.height <= 392
+    # clear already: left alone
+    clear = [UiRect(80, 100, 250, 80, (255, 255, 255))]
+    assert alertsClearOf(clear, area, 844) == clear

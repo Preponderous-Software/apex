@@ -878,3 +878,63 @@ def test_the_statistics_stay_above_the_keys(phone):
     for label in lastHud(page)["labels"]:
         if label["text"] not in keys:
             assert label["y"] + label["pixelSize"] <= PHONE[1] - band + 0.5, label["text"]
+
+
+# -- the caption beside the 2D/3D button, and a location alert while paused
+
+
+# graphik 0.5.3's button: both views on it ("2D 3D"), 44 pixels high
+PHONE_SWITCH = (290, 8, 92, 44)
+
+
+@pytest.mark.parametrize("button", [PHONE_BUTTON, PHONE_SWITCH])
+def test_on_a_phone_the_whole_caption_fits_left_of_the_2d_3d_button(phone, button):
+    game, page = phone
+    page.button = button
+    startSimulation(game, gridSize=28)
+    on3D(game, page)
+    caption = game.simulationScreen.getCaption()
+    (label,) = [label for label in lastHud(page)["labels"] if label["text"].startswith("Apex - ")]
+    assert label["text"] == caption  # not cut to "Apex - S..."
+    assert label["x"] >= 8 - 0.5
+    assert label["x"] + label["pixelSize"] * len(caption) <= button[0] - web.BUTTON_GAP + 0.5
+    assert label["y"] < button[1] + button[3]  # beside the button, not pushed below it
+    assert underButton(page, button) == []
+
+
+def boxes(hud):
+    return [tuple(p["rect"]) for p in hud["panels"]]
+
+
+def overlap(a, b):
+    return a[0] < b[0] + b[2] and b[0] < a[0] + a[2] and a[1] < b[1] + b[3] and b[1] < a[1] + a[3]
+
+
+@pytest.mark.parametrize("touch", [False, True])
+def test_a_location_opened_while_paused_keeps_clear_of_the_paused_box(tmp_path, monkeypatch, touch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TRACE_USAGE_REPORTING", "off")
+    page = TouchPage() if touch else Page()
+    game = WebApex(page=page, clock=Clock())
+    try:
+        startSimulation(game, gridSize=28)
+        on3D(game, page)
+        screen = game.simulationScreen
+        screen.setPaused(True)
+        view = game.view3d
+        # the tile in the middle of the board, where PAUSED is drawn
+        at = view.cellScreenPosition(14, 14, y=0.06)
+        assert game.selectAt(at) is not None
+        game.update3D()
+        hud = lastHud(page)
+        paused = [label for label in hud["labels"] if label["text"] == "PAUSED"][0]
+        pausedPanel = [b for b in boxes(hud) if b[1] <= paused["y"] <= b[1] + b[3]
+                       and b[0] <= paused["x"] and b[2] < view.width - 1][0]
+        alert = [label for label in hud["labels"] if label["text"].startswith("Location (")][0]
+        alertPanel = [b for b in boxes(hud) if b[1] <= alert["y"] <= b[1] + b[3]
+                      and b[0] <= alert["x"] + 1 and b is not pausedPanel and b[2] == 250][0]
+        assert not overlap(alertPanel, pausedPanel)
+        assert alertPanel[1] + alertPanel[3] <= view.height - game.touchBand3D()  # above any keys
+        assert fitsWindow(page, PHONE)
+    finally:
+        pygame.quit()
