@@ -52,6 +52,23 @@ def fitLabels(labels, width, margin=EDGE_MARGIN):
     return fitted
 
 
+def wrapAtSeparators(line, maxWidth, pixelSize, separator=" | "):
+    """A controls line wrapped between its controls (at " | ") rather than
+    between words, so a key stays on the line with what it does and no line
+    starts with a stray "|". A control too long for a line of its own is
+    word-wrapped."""
+    lines = []
+    for part in line.split(separator):
+        candidate = part if not lines else lines[-1] + separator + part
+        if lines and measureText(candidate, pixelSize) <= maxWidth:
+            lines[-1] = candidate
+        elif measureText(part, pixelSize) <= maxWidth:
+            lines.append(part)
+        else:
+            lines += wrapText(part, maxWidth, pixelSize)
+    return lines
+
+
 def textPanel(labels, padX=10, padY=6):
     """The dark panel behind a block of labels."""
     left = min(label.x for label in labels) - padX
@@ -83,7 +100,7 @@ def simulationHud(width, height, caption, paused, statsItems=(), alertItems=(), 
     panels += alertPanels
     lines = []
     for line in controls:
-        lines += wrapText(line, width - 32, CONTROLS_SIZE)
+        lines += wrapAtSeparators(line, width - 32, CONTROLS_SIZE)
     if lines:
         top = height - 40 - CONTROLS_LINE * len(lines)
         panels.append(Panel(8, top - 6, width - 16, CONTROLS_LINE * len(lines) + 10, HUD_PANEL))

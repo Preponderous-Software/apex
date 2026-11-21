@@ -150,3 +150,21 @@ def test_every_screen_renders_headless(tmp_path):
             assert path.stat().st_size > 1000
     finally:
         renderer.close()
+
+
+def test_on_a_phone_the_controls_wrap_between_controls_not_inside_them():
+    # wrapped word by word, a line on a phone started with a stray "|" and split
+    # "D statistics" from its key
+    from strata_view.hud import CONTROLS_SIZE, simulationHud
+    from strata_view.keys import WEB_CONTROLS_HINT
+
+    labels, _ = simulationHud(390, 844, "Apex - Simulation - 28x28", False, controls=WEB_CONTROLS_HINT)
+    lines = [label.text for label in labels if label.pixelSize == CONTROLS_SIZE]
+    assert lines and not any(line.startswith("|") or line.endswith("|") for line in lines)
+    controls = [part for line in WEB_CONTROLS_HINT for part in line.split(" | ")]
+    shown = [part for line in lines for part in line.split(" | ")]
+    # every control that fits a line is shown whole (a longer one is word-wrapped)
+    assert [part for part in controls if len(part) * CONTROLS_SIZE <= 390 - 32] == [
+        part for part in shown if part in controls]
+    assert all(len(line) * CONTROLS_SIZE <= 390 - 32 for line in lines)
+
