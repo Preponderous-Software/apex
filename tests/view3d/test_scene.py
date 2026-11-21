@@ -179,3 +179,19 @@ def test_on_a_phone_the_caption_shrinks_rather_than_losing_the_grid_size():
     # a desktop window keeps its size
     wide, _ = simulationHud(1280, 720, "Apex - Simulation - 28x28", False)
     assert wide[0].pixelSize == 14 and wide[0].text == "Apex - Simulation - 28x28"
+
+
+def test_a_clicked_location_is_framed_while_its_alert_is_up(app):
+    # the alert box sits beside the board; without a mark on the tile it was
+    # a guess which tile it described
+    screen = app.simulationScreen
+    grid = screen.simulation.environment.getGrid()
+    screen.selectLocation(grid.getLocationByCoordinates(3, 4))
+    board, pieces = scene.simulationBoard(screen, app.config)
+    framed = [p for p in pieces if p.style == scene.SELECTED_STYLE]
+    assert [(p.column, p.row) for p in framed] == [(3, 4)]
+    shapes, _ = board.pieceShapes(framed)
+    assert len(shapes) == 5  # a slab and four raised edges
+    screen.getTextAlerts().clear()
+    _, pieces = scene.simulationBoard(screen, app.config)
+    assert not [p for p in pieces if p.style == scene.SELECTED_STYLE]

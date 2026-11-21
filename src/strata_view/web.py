@@ -586,7 +586,9 @@ class WebApex(Apex):
         steps = (screen.steps, simulation.numTicks, len(simulation.entities))
         shown = (id(simulation), config.localView, config.localViewSize,
                  config.highlightOldestEntity, config.eyesEnabled,
-                 None if selected is None else selected.getID())
+                 None if selected is None else selected.getID(),
+                 # a click frames its location while the alert is up
+                 tuple(getattr(alert, "cell", None) for alert in screen.getTextAlerts()))
         return steps, shown
 
     def boardDue(self, state):
