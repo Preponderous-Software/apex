@@ -243,11 +243,11 @@ def test_setup_minus_and_plus_change_the_setting_in_3d(game, page):
     go(game, ScreenType.SETUP_SCREEN)
     game.config.gridSize = 30
     on3D(game, page)
-    assert "gridSize: 30" in texts(page)
+    assert "grid size: 30" in texts(page)
     game.press(labelCentre(page, "-", 0))  # gridSize's, drawn first
     assert game.config.gridSize == 29
     game.update3D()
-    assert "gridSize: 29" in texts(page)
+    assert "grid size: 29" in texts(page)
     game.press(labelCentre(page, "+", 0))
     game.press(labelCentre(page, "+", 0))
     assert game.config.gridSize == 31

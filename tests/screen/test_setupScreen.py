@@ -118,7 +118,7 @@ def test_drawMenuButtonsShowsTheCurrentConfigValues():
 
     screen.drawMenuButtons()
 
-    assert getLabels(screen) == ["gridSize: 24", "grassFactor: 7", "grassGrowTime: 150"]
+    assert getLabels(screen) == ["grid size: 24", "grass per tile: 7", "grass regrowth (ticks): 150"]
 
 def test_drawText():
     screen = getTestScreen()
