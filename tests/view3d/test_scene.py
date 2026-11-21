@@ -123,6 +123,10 @@ def test_the_hud_shows_the_statistics_caption_pause_and_version(app):
     for stat in ("Num Ticks:", "Living Entities:", "Grass:", "Rabbits:"):
         assert stat in texts
     assert "PAUSED" in texts
+    # and how to carry on, as the 2D screen says under its PAUSED
+    from screen.simulationScreen import PAUSED_HINT
+
+    assert PAUSED_HINT in texts
 
 
 def test_no_board_once_every_living_entity_is_gone(app):

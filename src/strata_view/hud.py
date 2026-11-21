@@ -6,11 +6,12 @@ the board (its statistics, its location alerts, PAUSED and the version), what
 the 2D window says in its title bar (the caption), the controls and a notice,
 as screen labels and panels. The two 3D views differ only in what they pass
 in. fitLabels() shrinks text too wide for a narrow window (a phone) so it
-stays on screen. Pure Python: no Strata, no pygame.
+stays on screen. Pure Python: no Strata.
 """
 
 from preponderous.graphik.grid3d import Label, Panel, fitText, measureText, wrapText
 
+from screen.simulationScreen import PAUSED_HINT
 from strata_view.scene import centredLabel, overlayFrom
 
 TEXT = (0.97, 0.96, 0.92, 1.0)
@@ -25,6 +26,8 @@ CONTROLS_SIZE = 11
 CONTROLS_LINE = 18
 NOTICE_SIZE = 16
 PAUSED_SIZE = 26
+PAUSED_HINT_SIZE = 12
+PAUSED_HINT_LINE = 26
 # the smallest text fitLabels() shrinks to
 MIN_LABEL_SIZE = 8
 EDGE_MARGIN = 8
@@ -121,10 +124,14 @@ def simulationHud(width, height, caption, paused, statsItems=(), alertItems=(), 
     if notice:
         labels.append(Label(fitText(notice, width, NOTICE_SIZE), 16, 34, NOTICE_SIZE, TEXT))
     if paused:
+        # PAUSED and, under it, how to resume (as the 2D screen says)
         size = PAUSED_SIZE
-        boxWidth = len("PAUSED") * size + 48
-        panels.append(Panel(width / 2 - boxWidth / 2, height / 2 - 30, boxWidth, 60, HUD_PANEL))
+        hintSize = min(PAUSED_HINT_SIZE, (width - 64) / float(len(PAUSED_HINT)))
+        boxWidth = max(len("PAUSED") * size, len(PAUSED_HINT) * hintSize) + 48
+        panels.append(Panel(width / 2 - boxWidth / 2, height / 2 - 30, boxWidth, 60 + PAUSED_HINT_LINE,
+                            HUD_PANEL))
         labels.append(centredLabel("PAUSED", width / 2, height / 2, size))
+        labels.append(centredLabel(PAUSED_HINT, width / 2, height / 2 + PAUSED_HINT_LINE + 4, hintSize))
     versionLabels, _ = overlayFrom(versionItems)
     labels += fitLabels(versionLabels, width)
     return labels, panels

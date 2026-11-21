@@ -286,6 +286,10 @@ def test_pausingStopsTheSimulationAndSaysSo(frames):
     assert screen.simulation.numTicks == 0
     config = getScreenConfig(screen)
     getScreenGraphik(screen).drawText.assert_any_call("PAUSED", 640, 360, 50, config.black)
+    # and how to resume, under it
+    from screen.simulationScreen import PAUSED_HINT
+
+    getScreenGraphik(screen).drawText.assert_any_call(PAUSED_HINT, 640, 405, 24, config.black)
 
 
 def test_unpausingResumesTheSimulation(frames):

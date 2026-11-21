@@ -19,6 +19,9 @@ from ui.gameDisplayFactory import GameDisplayFactory
 from ui.textAlertDrawTool import TextAlertDrawTool
 from ui.textAlertFactory import TextAlertFactory
 
+# Under PAUSED: how to carry on, so a held simulation never looks stuck
+PAUSED_HINT = "press Space or Esc to resume"
+
 # @author Daniel McCoy Stephenson
 class SimulationScreen:
     # constructors -----------------------------------------------------------
@@ -188,6 +191,7 @@ class SimulationScreen:
             if self.__paused:
                 x, y = self.__graphik.gameDisplay.get_size()
                 self.__graphik.drawText("PAUSED", x/2, y/2, 50, self.__config.black)
+                self.__graphik.drawText(PAUSED_HINT, x/2, y/2 + 45, 24, self.__config.black)
 
             if (self.__config.endSimulationUponAllLivingEntitiesDying):
                 if self.simulation.getNumLivingEntities() == 0:
